@@ -20,6 +20,9 @@ from mcp.server.stdio import stdio_server
 # 导入main模块的功能
 import main as main_module
 
+# 导入收藏夹管理操作（收藏/移动）
+import favorite_ops
+
 # 创建MCP服务器实例
 app = Server("zhihu-collections")
 
@@ -95,6 +98,46 @@ async def list_tools() -> list[Tool]:
                 "required": ["collection_url", "article_url"],
             },
         ),
+        Tool(
+            name="add_to_collection",
+            description="收藏一篇文章到指定知乎收藏夹。支持回答、专栏文章、视频、想法等类型。",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "collection_url": {
+                        "type": "string",
+                        "description": "目标收藏夹URL，如 https://www.zhihu.com/collection/123456789",
+                    },
+                    "article_url": {
+                        "type": "string",
+                        "description": "要收藏的文章URL，支持：\n- 回答: https://www.zhihu.com/question/xxx/answer/yyy\n- 专栏: https://zhuanlan.zhihu.com/p/xxx\n- 视频: https://www.zhihu.com/zvideo/xxx\n- 想法: https://www.zhihu.com/pin/xxx",
+                    },
+                },
+                "required": ["collection_url", "article_url"],
+            },
+        ),
+        Tool(
+            name="move_to_collection",
+            description="将一篇文章从一个收藏夹移动到另一个收藏夹（先添加后移除，保证内容不丢失）",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "from_collection_url": {
+                        "type": "string",
+                        "description": "源收藏夹URL，如 https://www.zhihu.com/collection/123456789",
+                    },
+                    "to_collection_url": {
+                        "type": "string",
+                        "description": "目标收藏夹URL，如 https://www.zhihu.com/collection/987654321",
+                    },
+                    "article_url": {
+                        "type": "string",
+                        "description": "要移动的文章URL，支持：\n- 回答: https://www.zhihu.com/question/xxx/answer/yyy\n- 专栏: https://zhuanlan.zhihu.com/p/xxx\n- 视频: https://www.zhihu.com/zvideo/xxx\n- 想法: https://www.zhihu.com/pin/xxx",
+                    },
+                },
+                "required": ["from_collection_url", "to_collection_url", "article_url"],
+            },
+        ),
     ]
 
 
@@ -112,6 +155,10 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             return await search_collections_handler(arguments)
         elif name == "remove_from_collection":
             return await remove_from_collection_handler(arguments)
+        elif name == "add_to_collection":
+            return await add_to_collection_handler(arguments)
+        elif name == "move_to_collection":
+            return await move_to_collection_handler(arguments)
         else:
             return [TextContent(type="text", text=f"未知工具: {name}")]
     except Exception as e:
@@ -262,6 +309,52 @@ async def remove_from_collection_handler(args: dict) -> list[TextContent]:
     result += f"📄 文章: {article_url}\n\n"
 
     success, msg = main_module.remove_from_collection(collection_url, article_url)
+
+    result += msg
+    return [TextContent(type="text", text=result)]
+
+
+async def add_to_collection_handler(args: dict) -> list[TextContent]:
+    """处理add_to_collection工具调用 —— 收藏文章"""
+    collection_url = args.get("collection_url", "").strip()
+    article_url = args.get("article_url", "").strip()
+
+    if not collection_url:
+        return [TextContent(type="text", text="错误: 需要提供 collection_url 参数")]
+    if not article_url:
+        return [TextContent(type="text", text="错误: 需要提供 article_url 参数")]
+
+    result = f"⭐ 正在收藏文章...\n"
+    result += f"📂 目标收藏夹: {collection_url}\n"
+    result += f"📄 文章: {article_url}\n\n"
+
+    success, msg = favorite_ops.add_to_collection(collection_url, article_url)
+
+    result += msg
+    return [TextContent(type="text", text=result)]
+
+
+async def move_to_collection_handler(args: dict) -> list[TextContent]:
+    """处理move_to_collection工具调用 —— 移动文章到其他收藏夹"""
+    from_url = args.get("from_collection_url", "").strip()
+    to_url = args.get("to_collection_url", "").strip()
+    article_url = args.get("article_url", "").strip()
+
+    if not from_url:
+        return [
+            TextContent(type="text", text="错误: 需要提供 from_collection_url 参数")
+        ]
+    if not to_url:
+        return [TextContent(type="text", text="错误: 需要提供 to_collection_url 参数")]
+    if not article_url:
+        return [TextContent(type="text", text="错误: 需要提供 article_url 参数")]
+
+    result = f"📦 正在移动文章...\n"
+    result += f"📂 源收藏夹: {from_url}\n"
+    result += f"📂 目标收藏夹: {to_url}\n"
+    result += f"📄 文章: {article_url}\n\n"
+
+    success, msg = favorite_ops.move_to_collection(from_url, to_url, article_url)
 
     result += msg
     return [TextContent(type="text", text=result)]
