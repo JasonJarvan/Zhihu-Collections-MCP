@@ -9,6 +9,10 @@
   - 收藏(添加): POST   /api/v4/collections/contents/{type}/{id}
   - 取消收藏:    DELETE /api/v4/collections/contents/{type}/{id}
   - 添加到指定:  POST   /api/v4/collections/{collection_id}/contents
+
+延迟策略（参照 main.py: random.randint(1,5) for downloads）：
+  - 单次收藏/取消后延迟: 1.0 ~ 3.0 秒
+  - 移动操作内部步骤间: 1 ~ 5 秒
 """
 
 import json
@@ -19,6 +23,18 @@ import re
 import time
 
 import requests
+
+# ──────────────────────────────────────────────
+# 请求延迟常量
+# ──────────────────────────────────────────────
+
+# 单次收藏/取消操作后的延迟（比 GET 更保守，写操作更易触发反爬）
+_OP_DELAY_MIN = 1.0
+_OP_DELAY_MAX = 3.0
+
+# 移动操作内部步骤间延迟（参照 main.py 的 random.randint(1, 5)）
+_MOVE_DELAY_MIN = 1
+_MOVE_DELAY_MAX = 5
 
 # ──────────────────────────────────────────────
 # Cookie 加载
@@ -99,6 +115,16 @@ def parse_article_info(url):
 # ──────────────────────────────────────────────
 
 
+def _op_delay():
+    """单次收藏/取消操作后的延迟，避免触发频率限制"""
+    time.sleep(random.uniform(_OP_DELAY_MIN, _OP_DELAY_MAX))
+
+
+def _move_step_delay():
+    """移动操作内部步骤间延迟，参照 main.py 下载间隔"""
+    time.sleep(random.randint(_MOVE_DELAY_MIN, _MOVE_DELAY_MAX))
+
+
 def favorite_content(content_type, content_id, collection_id=None):
     """
     收藏指定内容（添加到收藏夹）
@@ -154,6 +180,7 @@ def favorite_content(content_type, content_id, collection_id=None):
                 cookies=cookies,
                 timeout=30,
             )
+            _op_delay()  # 请求后延迟，避免频率限制
 
             if resp.status_code == 200:
                 try:
@@ -215,6 +242,7 @@ def favorite_content(content_type, content_id, collection_id=None):
                 cookies=cookies,
                 timeout=30,
             )
+            _op_delay()  # 请求后延迟，避免频率限制
 
             if resp.status_code == 200:
                 try:
@@ -298,6 +326,7 @@ def unfavorite_content(content_type, content_id):
             cookies=cookies,
             timeout=30,
         )
+        _op_delay()  # 请求后延迟，避免频率限制
 
         if resp.status_code == 200:
             try:
@@ -426,8 +455,8 @@ def move_to_collection(from_collection_url, to_collection_url, article_url):
             "\n".join(result_parts) + "\n⚠️ 添加失败，未执行移除操作",
         )
 
-    # 给服务器一点时间处理
-    time.sleep(random.uniform(0.5, 1.0))
+    # 给服务器一点时间处理（参照 main.py: random.randint(1,5)）
+    _move_step_delay()
 
     # 第二步：从源收藏夹移除
     remove_success, remove_msg = unfavorite_content(content_type, content_id)
