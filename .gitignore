@@ -12,5 +12,6 @@ build/
 dist/
 *.spec
 cookies.json
+config.json
 /downloads
 .vscode/*
