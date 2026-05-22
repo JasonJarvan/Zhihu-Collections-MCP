@@ -123,12 +123,10 @@ def get_output_path(collection_name, base_output_path):
         return os.path.join(os.getcwd(), "downloads", collection_name)
 
 
-def get_logs_path():
+def get_logs_path(base_output_path):
     """
     获取日志路径
     """
-    global base_output_path
-
     if base_output_path:
         # 使用自定义输出路径
         return os.path.join(str(base_output_path), "logs")
@@ -137,12 +135,10 @@ def get_logs_path():
         return os.path.join(os.getcwd(), "downloads", "logs")
 
 
-def get_debug_path():
+def get_debug_path(base_output_path):
     """
     获取调试文件路径
     """
-    global base_output_path
-
     if base_output_path:
         # 使用自定义输出路径
         return os.path.join(str(base_output_path), "debug")
@@ -297,6 +293,11 @@ def _build_api_headers():
 
 
 class _BaseStyleConverter(MarkdownConverter):
+    def __init__(self, collection_name, context, **kwargs):
+        super().__init__(**kwargs)
+        self._collection_name = collection_name
+        self._ctx = context
+
     def chomp(self, text):
         prefix = " " if text and text[0] == " " else ""
         suffix = " " if text and text[-1] == " " else ""
@@ -304,8 +305,7 @@ class _BaseStyleConverter(MarkdownConverter):
         return (prefix, suffix, text)
 
     def _download_image(self, src):
-        global current_collection_name
-        downloadDir = get_output_path(current_collection_name)
+        downloadDir = get_output_path(self._collection_name, self._ctx.base_output_path)
         if not os.path.exists(downloadDir):
             os.makedirs(downloadDir)
         assetsDir = os.path.join(downloadDir, "assets")
@@ -314,7 +314,7 @@ class _BaseStyleConverter(MarkdownConverter):
 
         try:
             img_content = requests.get(
-                url=src, headers=headers, cookies=cookies, timeout=30
+                url=src, headers=self._ctx.headers, cookies=self._ctx.cookies, timeout=30
             ).content
         except Exception as img_e:
             logging.warning(f"图片下载失败: {src} - {img_e}")
@@ -324,6 +324,14 @@ class _BaseStyleConverter(MarkdownConverter):
         if "/equation" in src:
             url_hash = hashlib.sha256(src.encode()).hexdigest()[:12]
             img_content_name = f"equation_{url_hash}.svg"
+            svg_str = img_content.decode("utf-8", errors="ignore")
+            svg_str = re.sub(
+                r'(<svg[^>]*>)',
+                r'\1<rect width="100%" height="100%" fill="white"/>',
+                svg_str,
+                count=1,
+            )
+            img_content = svg_str.encode("utf-8")
         imgPath = os.path.join(assetsDir, img_content_name)
         with open(imgPath, "wb") as fp:
             fp.write(img_content)
@@ -454,14 +462,14 @@ class StandardStyleConverter(_BaseStyleConverter):
         return "![%s](assets/%s)\n\n" % (alt, filename)
 
 
-def markdownify(html, **options):
+def markdownify(html, collection_name, context, **options):
     fmt = options.pop("format", "obsidian")
     converter_cls = ObsidianStyleConverter if fmt == "obsidian" else StandardStyleConverter
-    return converter_cls(**options).convert(html)
+    return converter_cls(collection_name, context, **options).convert(html)
 
 
 # 获取收藏夹的回答总数
-def get_article_nums_of_collection(collection_id):
+def get_article_nums_of_collection(collection_id, headers, cookies):
     """
     :param starturl: 收藏夹连接
     :return: 收藏夹的页数
@@ -483,14 +491,14 @@ def get_article_nums_of_collection(collection_id):
 
 
 # 解析出每个回答的具体链接
-def get_article_urls_in_collection(collection_id):
+def get_article_urls_in_collection(collection_id, headers, cookies):
     collection_id = collection_id.replace("\n", "")
     logging.info(f"开始获取收藏夹 {collection_id} 的文章列表")
 
     offset = 0
     limit = 20
 
-    article_nums = get_article_nums_of_collection(collection_id)
+    article_nums = get_article_nums_of_collection(collection_id, headers, cookies)
 
     if article_nums is None or article_nums == 0:
         logging.warning(f"收藏夹 {collection_id} 没有文章或获取失败")
@@ -540,7 +548,7 @@ def get_article_urls_in_collection(collection_id):
 
 
 # 获得单条答案的数据
-def get_single_answer_content(answer_url):
+def get_single_answer_content(answer_url, headers, cookies, api_headers, base_output_path):
     # zvideo/pin 内容不支持，快速返回避免 HTTP 超时浪费
     if '/zvideo/' in answer_url or '/pin/' in answer_url:
         return -1
@@ -677,7 +685,7 @@ def get_single_answer_content(answer_url):
         if not answer_content:
             logging.error(f"未找到回答内容容器: {answer_url}")
             # 保存页面HTML以供调试
-            debug_dir = get_debug_path()
+            debug_dir = get_debug_path(base_output_path)
             os.makedirs(debug_dir, exist_ok=True)
             debug_file = os.path.join(
                 debug_dir, f"debug_answer_{answer_url.split('/')[-1]}.html"
@@ -728,7 +736,7 @@ def get_single_answer_content(answer_url):
 
 
 # 获取单条专栏文章的内容
-def get_single_post_content(paper_url):
+def get_single_post_content(paper_url, headers, cookies, api_headers, base_output_path):
     logging.debug(f"开始获取专栏文章内容: {paper_url}")
     flush_logs()
 
@@ -834,7 +842,7 @@ def get_single_post_content(paper_url):
 
                 logging.error(f"未找到专栏内容容器: {paper_url} - {error_message}")
                 # 保存页面HTML以供调试
-                debug_dir = get_debug_path()
+                debug_dir = get_debug_path(base_output_path)
                 os.makedirs(debug_dir, exist_ok=True)
                 debug_file = os.path.join(
                     debug_dir, f"debug_post_{paper_url.split('/')[-1]}.html"
@@ -967,11 +975,11 @@ def get_unique_filename(base_dir, title, url):
     return os.path.join(base_dir, unique_filename + ".md")
 
 
-def save_processing_log():
+def save_processing_log(processing_log, base_output_path):
     """
     保存处理日志到logs目录
     """
-    logs_dir = get_logs_path()
+    logs_dir = get_logs_path(base_output_path)
     if not os.path.exists(logs_dir):
         os.makedirs(logs_dir)
 
@@ -1012,10 +1020,8 @@ def flush_logs():
     sys.stderr.flush()
 
 
-def process_single_collection(collection_name, collection_url):
+def process_single_collection(collection_name, collection_url, context):
     """处理单个收藏夹"""
-    global current_collection_name, processing_log
-    current_collection_name = collection_name
 
     logging.info(f"开始处理收藏夹: {collection_name}")
     logging.info(f"收藏夹URL: {collection_url}")
@@ -1026,7 +1032,7 @@ def process_single_collection(collection_name, collection_url):
         logging.info(f"解析得到收藏夹ID: {collection_id}")
         flush_logs()
 
-        urls, titles = get_article_urls_in_collection(collection_id)
+        urls, titles = get_article_urls_in_collection(collection_id, context.headers, context.cookies)
 
         if not urls:
             logging.warning(f"收藏夹 '{collection_name}' 没有获取到任何文章")
@@ -1047,12 +1053,12 @@ def process_single_collection(collection_name, collection_url):
         error_msg = f"地址标题列表长度不一致: urls={len(urls)}, titles={len(titles)}"
         logging.error(error_msg)
         flush_logs()
-        processing_log.append(collection_log)
+        context.processing_log.append(collection_log)
         return
 
     print(f"收藏夹 '{collection_name}' 共获取 {len(urls)} 篇可导出回答或专栏")
 
-    downloadDir = get_output_path(collection_name)
+    downloadDir = get_output_path(collection_name, context.base_output_path)
     if not os.path.exists(downloadDir):
         os.makedirs(downloadDir)
 
@@ -1078,9 +1084,9 @@ def process_single_collection(collection_name, collection_url):
             flush_logs()
 
             if url.find("zhuanlan") != -1:
-                content = get_single_post_content(url)
+                content = get_single_post_content(url, context.headers, context.cookies, context.api_headers, context.base_output_path)
             else:
-                content = get_single_answer_content(url)
+                content = get_single_answer_content(url, context.headers, context.cookies, context.api_headers, context.base_output_path)
 
             if content == -1:
                 article_log["status"] = f"文章下载失败, 原因:获取内容失败"
@@ -1089,8 +1095,8 @@ def process_single_collection(collection_name, collection_url):
                 flush_logs()
                 continue
 
-            markdown_fmt = config.get("markdownFormat", "obsidian")
-            md = markdownify(content, format=markdown_fmt, heading_style="ATX")
+            markdown_fmt = context.markdown_format
+            md = markdownify(content, collection_name, context, format=markdown_fmt, heading_style="ATX")
             md = "> %s\n" % url + md
 
             with open(file_path, "w", encoding="utf-8") as md_file:
@@ -1113,7 +1119,7 @@ def process_single_collection(collection_name, collection_url):
             flush_logs()
 
     # 将收藏夹日志添加到全局日志
-    processing_log.append(collection_log)
+    context.processing_log.append(collection_log)
     print(f"收藏夹 '{collection_name}' 下载完毕")
 
 
@@ -1134,19 +1140,18 @@ def remove_articles_from_collection(collection_url, article_urls):
 
 
 def main():
-    global base_output_path, config
-
     config = load_config()
 
     if config.get("outputPath"):
         base_output_path = parse_output_path(config["outputPath"], config.get("os", ""))
         if base_output_path:
             print(f"使用自定义输出路径: {base_output_path}")
-            reconfigure_logging()
+            reconfigure_logging(base_output_path)
         else:
             print("输出路径解析失败，使用默认路径")
             base_output_path = None
     else:
+        base_output_path = None
         print("使用默认输出路径: downloads/")
 
     open_collection_mode = config.get("openCollection", False)
@@ -1168,6 +1173,14 @@ def main():
     print(f"Markdown 格式: {markdown_fmt} ({'Obsidian wiki-link' if markdown_fmt == 'obsidian' else '标准格式'})")
     print(f"共找到 {len(zhihu_collections)} 个收藏夹待处理")
 
+    context = ExportContext(
+        base_output_path=base_output_path,
+        headers=_build_page_headers(),
+        api_headers=_build_api_headers(),
+        cookies=load_cookies(),
+        markdown_format=markdown_fmt,
+    )
+
     for collection in zhihu_collections:
         collection_name = collection.get("name", "未命名收藏夹")
         collection_url = collection.get("url", "")
@@ -1177,11 +1190,11 @@ def main():
             continue
 
         print(f"\n开始处理收藏夹: {collection_name}")
-        process_single_collection(collection_name, collection_url)
+        process_single_collection(collection_name, collection_url, context)
 
     print("\n所有收藏夹处理完毕!")
 
-    save_processing_log()
+    save_processing_log(context.processing_log, context.base_output_path)
 
 
 if __name__ == "__main__":

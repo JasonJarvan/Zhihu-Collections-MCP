@@ -26,28 +26,16 @@ import requests
 from zhihu_collections._common import load_cookies as _load_cookies_raw
 
 
-# ──────────────────────────────────────────────
-# 请求延迟常量
-# ──────────────────────────────────────────────
+def _op_delay(min_sec=1.0, max_sec=3.0):
+    time.sleep(random.uniform(min_sec, max_sec))
 
-_OP_DELAY_MIN = 1.0
-_OP_DELAY_MAX = 3.0
 
-_MOVE_DELAY_MIN = 1
-_MOVE_DELAY_MAX = 5
-
-# ──────────────────────────────────────────────
-# Cookie 加载
-# ──────────────────────────────────────────────
-
-_cookies = None
+def _move_step_delay(min_sec=1, max_sec=5):
+    time.sleep(random.randint(min_sec, max_sec))
 
 
 def get_cookies():
-    global _cookies
-    if _cookies is None:
-        _cookies = _load_cookies_raw()
-    return _cookies
+    return _load_cookies_raw()
 
 
 # ──────────────────────────────────────────────
@@ -96,16 +84,6 @@ def parse_article_info(url):
 # ──────────────────────────────────────────────
 # 核心操作
 # ──────────────────────────────────────────────
-
-
-def _op_delay():
-    """单次收藏/取消操作后的延迟，避免触发频率限制"""
-    time.sleep(random.uniform(_OP_DELAY_MIN, _OP_DELAY_MAX))
-
-
-def _move_step_delay():
-    """移动操作内部步骤间延迟，参照 main.py 下载间隔"""
-    time.sleep(random.randint(_MOVE_DELAY_MIN, _MOVE_DELAY_MAX))
 
 
 def favorite_content(content_type, content_id, collection_id=None):
