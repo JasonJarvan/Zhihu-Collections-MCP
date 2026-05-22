@@ -20,6 +20,19 @@ from zhihu_collections._collection import process_single_collection, get_article
 from zhihu_collections import favorite_ops
 
 
+def _get_effective_output_path(args: dict, config: dict):
+    import os as _os
+    output_dir = args.get("output_dir", "") if args else ""
+    if output_dir:
+        return parse_output_path(output_dir, config.get("os", ""))
+    env_path = _os.environ.get("ZHIHU_OUTPUT_PATH")
+    if env_path:
+        return parse_output_path(env_path, config.get("os", ""))
+    if config.get("outputPath"):
+        return parse_output_path(config["outputPath"], config.get("os", ""))
+    return None
+
+
 async def main():
     app = Server("zhihu-collections")
 
@@ -47,7 +60,10 @@ async def main():
                         },
                         "output_dir": {
                             "type": "string",
-                            "description": "输出目录路径（可选，默认为downloads）",
+                            "description": (
+                                "输出目录路径（可选）。优先级: 本参数 > ZHIHU_OUTPUT_PATH 环境变量"
+                                " > config.json 的 outputPath > downloads/"
+                            ),
                         },
                         "overwrite": {
                             "type": "boolean",
@@ -188,7 +204,6 @@ async def main():
     async def _export_collection_handler(args: dict) -> list[TextContent]:
         collection_url = args.get("collection_url")
         collection_name = args.get("collection_name", "")
-        output_dir = args.get("output_dir", "")
         overwrite = args.get("overwrite", False)
 
         if not collection_url:
@@ -199,15 +214,7 @@ async def main():
             collection_name = f"收藏夹_{collection_id_from_url}"
 
         config = load_config()
-        if output_dir:
-            output_path = parse_output_path(output_dir, config.get("os", ""))
-        elif config.get("outputPath"):
-            output_path = parse_output_path(
-                config["outputPath"], config.get("os", "")
-            )
-        else:
-            output_path = None
-
+        output_path = _get_effective_output_path(args, config)
         base_output_path = str(output_path) if output_path else None
 
         result = f"🚀 开始导出收藏夹：{collection_name}\n"
