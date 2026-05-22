@@ -11,9 +11,9 @@ assets
 build/
 dist/
 *.spec
+*.egg-info/
 cookies.json
 config.json
 /downloads
 .vscode/*
-
-cookies.json
+.venv/

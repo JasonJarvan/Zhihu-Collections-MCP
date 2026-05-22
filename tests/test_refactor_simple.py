@@ -67,7 +67,7 @@ def test_main_imports():
     print("\n=== 测试main.py导入 ===")
     
     try:
-        with open('main.py', 'r', encoding='utf-8') as f:
+        with open('src/zhihu_collections/main.py', 'r', encoding='utf-8') as f:
             main_content = f.read()
         
         if 'from get_collections import process_open_collection_mode' in main_content:
@@ -110,7 +110,7 @@ def test_removed_functions():
     print("\n=== 测试函数移除情况 ===")
     
     try:
-        with open('main.py', 'r', encoding='utf-8') as f:
+        with open('src/zhihu_collections/main.py', 'r', encoding='utf-8') as f:
             main_content = f.read()
         
         removed_functions = [

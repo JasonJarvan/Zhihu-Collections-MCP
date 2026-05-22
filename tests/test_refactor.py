@@ -5,16 +5,13 @@
 import sys
 import os
 
-# 添加父目录到路径
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 def test_imports():
     """测试模块导入"""
     print("=== 测试模块导入 ===")
     
     try:
-        # 测试get_collections模块是否可以导入（无需外部依赖的部分）
-        import get_collections
+        from zhihu_collections import get_collections
         print("✓ get_collections模块导入成功")
         
         # 检查关键函数是否存在
@@ -31,7 +28,7 @@ def test_imports():
     
     try:
         # 测试main.py是否可以正常导入get_collections
-        with open('main.py', 'r', encoding='utf-8') as f:
+        with open('src/zhihu_collections/main.py', 'r', encoding='utf-8') as f:
             content = f.read()
         
         if 'from get_collections import process_open_collection_mode' in content:

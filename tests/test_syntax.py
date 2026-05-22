@@ -12,11 +12,11 @@ def test_syntax():
     
     try:
         # 编译测试
-        py_compile.compile('main.py', doraise=True)
+        py_compile.compile('src/zhihu_collections/main.py', doraise=True)
         print("✓ main.py 编译成功")
         
         # AST解析测试
-        with open('main.py', 'r', encoding='utf-8') as f:
+        with open('src/zhihu_collections/main.py', 'r', encoding='utf-8') as f:
             source = f.read()
         
         ast.parse(source)
@@ -39,7 +39,7 @@ def test_key_functions():
     print("\n=== 关键函数定义测试 ===")
     
     try:
-        with open('main.py', 'r', encoding='utf-8') as f:
+        with open('src/zhihu_collections/main.py', 'r', encoding='utf-8') as f:
             content = f.read()
         
         # 检查关键函数是否定义
@@ -71,7 +71,7 @@ def test_error_handling_patterns():
     print("\n=== 错误处理模式测试 ===")
     
     try:
-        with open('main.py', 'r', encoding='utf-8') as f:
+        with open('src/zhihu_collections/main.py', 'r', encoding='utf-8') as f:
             content = f.read()
         
         # 检查错误处理模式

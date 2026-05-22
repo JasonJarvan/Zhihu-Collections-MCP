@@ -8,7 +8,7 @@ from bs4 import BeautifulSoup
 import re
 from tqdm import tqdm
 from datetime import datetime
-from utils import filter_title_str
+from zhihu_collections.utils import filter_title_str
 import json
 import logging
 import traceback
@@ -135,7 +135,7 @@ base_output_path = None
 # 设置调试日志
 def setup_debug_logging():
     # 初始化时使用默认路径，稍后会在main中重新配置
-    logs_dir = os.path.join(os.path.dirname(__file__), "downloads", "logs")
+    logs_dir = os.path.join(os.getcwd(), "downloads", "logs")
     if not os.path.exists(logs_dir):
         os.makedirs(logs_dir)
 
@@ -225,7 +225,7 @@ def get_output_path(collection_name):
         return os.path.join(str(base_output_path), collection_name)
     else:
         # 使用默认路径
-        return os.path.join(os.path.dirname(__file__), "downloads", collection_name)
+        return os.path.join(os.getcwd(), "downloads", collection_name)
 
 
 def get_logs_path():
@@ -239,7 +239,7 @@ def get_logs_path():
         return os.path.join(str(base_output_path), "logs")
     else:
         # 使用默认路径
-        return os.path.join(os.path.dirname(__file__), "downloads", "logs")
+        return os.path.join(os.getcwd(), "downloads", "logs")
 
 
 def get_debug_path():
@@ -253,7 +253,7 @@ def get_debug_path():
         return os.path.join(str(base_output_path), "debug")
     else:
         # 使用默认路径
-        return os.path.join(os.path.dirname(__file__), "downloads", "debug")
+        return os.path.join(os.getcwd(), "downloads", "debug")
 
 
 def smart_content_detection(soup, url):
@@ -1402,16 +1402,15 @@ def remove_articles_from_collection(collection_url, article_urls):
     return results
 
 
-if __name__ == "__main__":
-    # 加载配置
+def main():
+    global base_output_path
+
     config = load_config()
 
-    # 解析输出路径
     if config.get("outputPath"):
         base_output_path = parse_output_path(config["outputPath"], config.get("os", ""))
         if base_output_path:
             print(f"使用自定义输出路径: {base_output_path}")
-            # 重新配置日志路径
             reconfigure_logging()
         else:
             print("输出路径解析失败，使用默认路径")
@@ -1419,21 +1418,19 @@ if __name__ == "__main__":
     else:
         print("使用默认输出路径: downloads/")
 
-    # 检查是否启用openCollection模式
     open_collection_mode = config.get("openCollection", False)
 
     if open_collection_mode:
         print("检测到openCollection模式已启用")
-        print("请先运行 python fetch_collections.py 获取收藏夹列表")
+        print("请先运行 zhihu-fetch 获取收藏夹列表")
         print("然后将config.json中的openCollection设为false，重新运行此程序")
         sys.exit(1)
 
-    # 常规模式：处理收藏夹下载
     zhihu_collections = config.get("zhihuUrls", [])
 
     if not zhihu_collections:
         print("没有找到要处理的收藏夹配置")
-        print("提示：请运行 python fetch_collections.py 自动获取收藏夹列表")
+        print("提示：请运行 zhihu-fetch 自动获取收藏夹列表")
         sys.exit(1)
 
     print(f"共找到 {len(zhihu_collections)} 个收藏夹待处理")
@@ -1451,8 +1448,11 @@ if __name__ == "__main__":
 
     print("\n所有收藏夹处理完毕!")
 
-    # 保存处理日志
     save_processing_log()
+
+
+if __name__ == "__main__":
+    main()
 
 # def testMarkdownifySingleAnswer():
 #     url = "https://www.zhihu.com/question/506166712/answer/2271842801"

@@ -14,7 +14,7 @@ def test_function_signatures():
     
     try:
         # 读取main.py内容
-        with open('main.py', 'r', encoding='utf-8') as f:
+        with open('src/zhihu_collections/main.py', 'r', encoding='utf-8') as f:
             content = f.read()
         
         # 检查关键修复
@@ -45,7 +45,7 @@ def test_logging_improvements():
     print("\n=== 测试日志改进 ===")
     
     try:
-        with open('main.py', 'r', encoding='utf-8') as f:
+        with open('src/zhihu_collections/main.py', 'r', encoding='utf-8') as f:
             content = f.read()
         
         logging_improvements = [
@@ -75,7 +75,7 @@ def test_error_handling():
     print("\n=== 测试错误处理改进 ===")
     
     try:
-        with open('main.py', 'r', encoding='utf-8') as f:
+        with open('src/zhihu_collections/main.py', 'r', encoding='utf-8') as f:
             content = f.read()
         
         error_handling_patterns = [
@@ -107,7 +107,7 @@ def test_syntax_validation():
     import py_compile
     
     try:
-        py_compile.compile('main.py', doraise=True)
+        py_compile.compile('src/zhihu_collections/main.py', doraise=True)
         print("✓ main.py 语法正确")
         return True
     except py_compile.PyCompileError as e:

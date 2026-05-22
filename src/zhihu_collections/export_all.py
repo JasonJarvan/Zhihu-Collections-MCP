@@ -1,4 +1,4 @@
-import main as main_module
+from zhihu_collections import main as main_module
 
 config = main_module.load_config()
 main_module.base_output_path = str(

@@ -2,14 +2,10 @@
 """
 测试get_collections模块的功能
 """
-import sys
-import os
-
-# 添加父目录到路径，以便导入模块
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 try:
-    from get_collections import (
+    import sys
+    import os
+    from zhihu_collections.get_collections import (
         load_cookies,
         get_collections_from_page,
         get_all_collections,

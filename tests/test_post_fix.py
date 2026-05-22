@@ -14,7 +14,7 @@ def test_new_selectors():
     print("=== 测试新增CSS选择器 ===")
     
     try:
-        with open('main.py', 'r', encoding='utf-8') as f:
+        with open('src/zhihu_collections/main.py', 'r', encoding='utf-8') as f:
             content = f.read()
         
         # 检查新增的选择器
@@ -51,7 +51,7 @@ def test_smart_detection():
     print("\n=== 测试智能内容检测功能 ===")
     
     try:
-        with open('main.py', 'r', encoding='utf-8') as f:
+        with open('src/zhihu_collections/main.py', 'r', encoding='utf-8') as f:
             content = f.read()
         
         # 检查smart_content_detection函数
@@ -95,7 +95,7 @@ def test_error_analysis():
     print("\n=== 测试错误分析功能 ===")
     
     try:
-        with open('main.py', 'r', encoding='utf-8') as f:
+        with open('src/zhihu_collections/main.py', 'r', encoding='utf-8') as f:
             content = f.read()
         
         # 检查analyze_page_error函数
@@ -149,7 +149,7 @@ def test_syntax_correctness():
     import py_compile
     
     try:
-        py_compile.compile('main.py', doraise=True)
+        py_compile.compile('src/zhihu_collections/main.py', doraise=True)
         print("✓ main.py 语法正确")
         return True
     except py_compile.PyCompileError as e:
@@ -193,11 +193,11 @@ def simulate_test_case():
         if scenario['验证'] == "新选择器已添加":
             result = test_new_selectors()
         elif scenario['验证'] == "smart_content_detection函数存在":
-            result = "smart_content_detection" in open('main.py').read()
+            result = "smart_content_detection" in open('src/zhihu_collections/main.py').read()
         elif scenario['验证'] == "analyze_page_error函数存在":
-            result = "analyze_page_error" in open('main.py').read()
+            result = "analyze_page_error" in open('src/zhihu_collections/main.py').read()
         elif scenario['验证'] == "错误分析包含登录检测":
-            result = "登录" in open('main.py').read()
+            result = "登录" in open('src/zhihu_collections/main.py').read()
         else:
             result = True
         

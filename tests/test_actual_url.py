@@ -6,8 +6,6 @@
 import sys
 import os
 
-# 添加父目录到路径
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 def test_with_actual_function():
     """使用实际修复后的函数测试"""
@@ -16,8 +14,7 @@ def test_with_actual_function():
     test_url = "https://zhuanlan.zhihu.com/p/684702206"
     
     try:
-        # 导入main模块  
-        import main
+        from zhihu_collections import main
         
         print(f"测试URL: {test_url}")
         print("调用get_single_post_content函数...")

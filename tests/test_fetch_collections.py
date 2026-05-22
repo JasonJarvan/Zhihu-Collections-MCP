@@ -6,16 +6,12 @@ import sys
 import os
 import json
 
-# 添加父目录到路径
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 def test_fetch_collections_import():
     """测试fetch_collections模块导入"""
     print("=== 测试fetch_collections模块导入 ===")
     
     try:
-        # 尝试导入（不实际执行网络请求）
-        import fetch_collections
+        from zhihu_collections import fetch_collections
         
         # 检查关键函数是否存在
         required_functions = [
@@ -159,7 +155,7 @@ def test_main_py_openCollection_handling():
     
     try:
         # 读取main.py内容
-        with open('main.py', 'r', encoding='utf-8') as f:
+        with open('src/zhihu_collections/main.py', 'r', encoding='utf-8') as f:
             main_content = f.read()
         
         # 检查是否包含正确的提示信息

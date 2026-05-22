@@ -13,7 +13,7 @@ def analyze_post_function():
     print("=== 分析get_single_post_content函数 ===")
     
     try:
-        with open('main.py', 'r', encoding='utf-8') as f:
+        with open('src/zhihu_collections/main.py', 'r', encoding='utf-8') as f:
             content = f.read()
         
         # 查找get_single_post_content函数

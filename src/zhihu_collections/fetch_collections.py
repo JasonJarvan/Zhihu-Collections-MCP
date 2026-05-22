@@ -81,7 +81,7 @@ def parse_output_path(path_str, os_type):
 def setup_logging():
     """设置日志"""
     # 获取日志目录
-    logs_dir = os.path.join(os.path.dirname(__file__), 'downloads', 'logs')
+    logs_dir = os.path.join(os.getcwd(), 'downloads', 'logs')
     if not os.path.exists(logs_dir):
         os.makedirs(logs_dir)
     

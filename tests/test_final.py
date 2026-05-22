@@ -8,16 +8,12 @@ import os
 import logging
 import json
 
-# 添加父目录到路径
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 def test_config_loading():
     """测试配置加载"""
     print("=== 测试配置加载 ===")
     
     try:
-        # 导入主模块
-        import main
+        from zhihu_collections import main
         
         # 测试配置加载
         config = main.load_config()

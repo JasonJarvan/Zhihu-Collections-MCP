@@ -10,10 +10,12 @@
 
 Export-Zhihu-Collections 是一个将知乎收藏夹导出为 Markdown 格式的 Python 工具。该工具支持公开和私密收藏夹，可批量处理多个收藏夹，支持自定义输出路径，可下载内嵌图片，并将 HTML 内容转换为 Obsidian 兼容的 Markdown 格式。
 
+项目使用 **src-layout** 结构，以 **uv** 作为包管理器。
+
 ## 核心组件
 
 ### 主要架构
-- **main.py**: 包含收藏夹导出逻辑的主脚本
+- **src/zhihu_collections/main.py**: 包含收藏夹导出逻辑的主脚本
   - `load_config()`: 加载和解析配置文件
   - `parse_output_path()`: 跨平台路径解析和处理
   - `get_article_urls_in_collection()`: 使用知乎 API 获取收藏夹中的所有 URL
@@ -24,15 +26,13 @@ Export-Zhihu-Collections 是一个将知乎收藏夹导出为 Markdown 格式的
   - `setup_debug_logging()`: 调试日志配置
   - `get_debug_path()`: 获取调试文件保存路径
   - `ObsidianStyleConverter`: 用于 Obsidian 风格输出的自定义 MarkdownConverter
-- **fetch_collections.py**: 独立的收藏夹获取脚本
-  - `get_collections_from_page()`: 从知乎页面解析收藏夹信息
-  - `update_config_with_collections()`: 自动更新配置文件
-- **utils.py**: 包含用于文件名清理的 `filter_title_str()` 函数
+- **src/zhihu_collections/fetch_collections.py**: 独立的收藏夹获取脚本
+- **src/zhihu_collections/mcp_server.py**: MCP Server 入口
+- **src/zhihu_collections/favorite_ops.py**: 收藏/取消收藏/移动操作
+- **src/zhihu_collections/utils.py**: 包含用于文件名清理的 `filter_title_str()` 函数
 - **config.json**: 主配置文件，包含收藏夹列表、输出路径和系统设置
-- **config_examples.json**: 各种操作系统的配置示例
-- **zhihuUrls.json**: 旧版收藏夹URL列表文件（向后兼容）
 - **cookies.json**: 访问私密收藏夹的认证 cookies
-- **test/**: 测试文件目录，包含各种功能测试脚本
+- **tests/**: 测试文件目录
 
 ### 数据流程
 1. 加载配置文件 (config.json 或 zhihuUrls.json)
@@ -51,8 +51,11 @@ Export-Zhihu-Collections 是一个将知乎收藏夹导出为 Markdown 格式的
 
 ### 安装和设置
 ```bash
-# 安装依赖
-pip install -r requirements.txt
+# 安装依赖（使用 uv）
+uv sync
+
+# 可编辑安装，使命令行入口可用
+uv pip install -e .
 ```
 
 ### 配置和运行
@@ -62,9 +65,18 @@ cp config_examples.json config.json
 # 编辑 config.json，添加你的收藏夹信息
 
 # 2. 运行导出工具（批量处理）
-python main.py
+uv run zhihu-export
 
-# 对于私密收藏夹，确保根目录下存在 cookies.json 文件
+# 3. 运行 MCP Server
+uv run zhihu-mcp-server
+
+# 4. 获取收藏夹列表
+uv run zhihu-fetch
+```
+
+### 测试
+```bash
+uv run pytest
 ```
 
 ### 配置文件格式
@@ -82,40 +94,50 @@ python main.py
 ```
 
 ### 依赖包
-主要包：
+主要包（在 pyproject.toml 中声明）：
 - `requests`: 向知乎 API 发送 HTTP 请求
 - `beautifulsoup4`: HTML 解析
 - `markdownify`: HTML 到 Markdown 转换
 - `tqdm`: 进度条
 - `lxml`: XML/HTML 解析器后端
+- `mcp`: MCP 协议支持
 
 ## 文件结构
 
 ```
 /
-├── main.py              # 主导出脚本
-├── fetch_collections.py # 独立的收藏夹获取脚本
-├── utils.py             # 工具函数
-├── requirements.txt     # Python 依赖
-├── config.json          # 主配置文件
-├── config_examples.json # 配置示例文件
-├── zhihuUrls.json       # 旧版URL列表（向后兼容）
-├── cookies.json         # 认证 cookies（可选）
-├── test/                # 测试文件目录
-│   ├── README.md        # 测试说明文档
-│   ├── test_*.py        # 各种功能测试脚本
-│   └── __init__.py      # Python 包初始化文件
-└── downloads/           # 默认输出目录
-    ├── 收藏夹名称1/      # 按收藏夹名称分类的输出目录
-    │   ├── *.md         # 导出的 markdown 文件
-    │   └── assets/      # 下载的图片
+├── src/
+│   └── zhihu_collections/  # Python 包
+│       ├── __init__.py
+│       ├── main.py         # 主导出脚本
+│       ├── utils.py        # 工具函数
+│       ├── fetch_collections.py
+│       ├── get_collections.py
+│       ├── mcp_server.py   # MCP Server
+│       ├── export_all.py   # 批量导出
+│       ├── favorite_ops.py # 收藏操作
+│       ├── debug_page.py   # 调试脚本
+│       └── analyze_issue.py
+├── tests/                  # 测试文件目录
+│   ├── README.md
+│   ├── __init__.py
+│   └── test_*.py
+├── pyproject.toml          # uv 项目配置
+├── config.json             # 主配置文件
+├── config_examples.json    # 配置示例文件
+├── zhihuUrls.json          # 旧版URL列表（向后兼容）
+├── cookies.json            # 认证 cookies（可选）
+└── downloads/              # 默认输出目录
+    ├── 收藏夹名称1/         # 按收藏夹名称分类的输出目录
+    │   ├── *.md            # 导出的 markdown 文件
+    │   └── assets/         # 下载的图片
     ├── 收藏夹名称2/
-    ├── logs/            # 处理日志文件
-    │   ├── debug_*.log  # 调试日志
-    │   └── *.json       # 处理结果日志
-    └── debug/           # 调试HTML文件
-        ├── debug_answer_*.html  # 回答页面调试文件
-        └── debug_post_*.html    # 专栏文章调试文件
+    ├── logs/               # 处理日志文件
+    │   ├── debug_*.log     # 调试日志
+    │   └── *.json          # 处理结果日志
+    └── debug/              # 调试HTML文件
+        ├── debug_answer_*.html
+        └── debug_post_*.html
 ```
 
 ## 认证
@@ -139,7 +161,7 @@ python main.py
 - **智能去重**: 检查已存在文件，避免重复下载
 - **详细日志**: 生成处理日志，记录每篇文章的下载状态
 - **实时日志**: 支持实时日志刷新，立即显示处理进度
-- **自动收藏夹获取**: 通过 `fetch_collections.py` 自动获取用户收藏夹列表
+- **自动收藏夹获取**: 通过 `zhihu-fetch` 命令自动获取用户收藏夹列表
 
 ### 内容处理
 - 图片使用 Obsidian 风格的 `![[filename]]` 语法下载和引用

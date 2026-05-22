@@ -21,7 +21,7 @@ def test_fetch_collections_structure():
     print("\n=== 测试fetch_collections.py结构 ===")
     
     try:
-        with open('fetch_collections.py', 'r', encoding='utf-8') as f:
+        with open('src/zhihu_collections/fetch_collections.py', 'r', encoding='utf-8') as f:
             content = f.read()
         
         required_functions = [
@@ -70,7 +70,7 @@ def test_main_py_changes():
     print("\n=== 测试main.py修改 ===")
     
     try:
-        with open('main.py', 'r', encoding='utf-8') as f:
+        with open('src/zhihu_collections/main.py', 'r', encoding='utf-8') as f:
             content = f.read()
         
         changes_correct = True
@@ -144,10 +144,10 @@ def test_syntax_check():
     import py_compile
     
     try:
-        py_compile.compile('fetch_collections.py', doraise=True)
+        py_compile.compile('src/zhihu_collections/fetch_collections.py', doraise=True)
         print("✓ fetch_collections.py 语法正确")
         
-        py_compile.compile('main.py', doraise=True)
+        py_compile.compile('src/zhihu_collections/main.py', doraise=True)
         print("✓ main.py 语法正确")
         
         return True

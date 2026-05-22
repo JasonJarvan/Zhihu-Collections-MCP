@@ -10,18 +10,12 @@ import json
 import asyncio
 from pathlib import Path
 
-# 确保可以导入main模块
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
 from mcp.server import Server
 from mcp.types import Tool, TextContent
 from mcp.server.stdio import stdio_server
 
-# 导入main模块的功能
-import main as main_module
-
-# 导入收藏夹管理操作（收藏/移动）
-import favorite_ops
+from zhihu_collections import main as main_module
+from zhihu_collections import favorite_ops
 
 # 创建MCP服务器实例
 app = Server("zhihu-collections")

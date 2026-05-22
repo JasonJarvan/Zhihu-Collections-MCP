@@ -14,7 +14,7 @@ def test_debug_path():
     
     try:
         # 模拟导入（不需要依赖包）
-        with open('main.py', 'r', encoding='utf-8') as f:
+        with open('src/zhihu_collections/main.py', 'r', encoding='utf-8') as f:
             content = f.read()
         
         # 检查是否包含get_debug_path函数

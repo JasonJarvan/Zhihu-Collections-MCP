@@ -44,7 +44,7 @@ _MOVE_DELAY_MAX = 5
 def _load_cookies():
     """加载 cookies.json，返回 dict"""
     try:
-        cookies_file = os.path.join(os.path.dirname(__file__), "cookies.json")
+        cookies_file = os.path.join(os.getcwd(), "cookies.json")
         with open(cookies_file, "r", encoding="utf-8") as f:
             cookies_list = json.load(f)
         cookies_dict = {}
