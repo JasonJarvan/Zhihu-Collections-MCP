@@ -62,22 +62,3 @@ def process_open_collection_mode(cookies=None):
         print("您现在可以将config.json中的openCollection设为false，然后重新运行程序开始下载")
     
     return success
-
-
-if __name__ == '__main__':
-    # 模块测试代码
-    print("测试get_collections模块...")
-    
-    # 测试加载cookies
-    cookies = load_cookies()
-    print(f"加载cookies: {'成功' if cookies else '失败'}")
-    
-    # 测试获取单页
-    print("\n测试获取单页收藏夹...")
-    collections, has_items = get_collections_from_page(1, cookies)
-    print(f"获取到{len(collections)}个收藏夹，是否有更多项目: {has_items}")
-    
-    if collections:
-        print("收藏夹示例:")
-        for i, collection in enumerate(collections[:3]):
-            print(f"  {i+1}. {collection['name']}: {collection['url']}")

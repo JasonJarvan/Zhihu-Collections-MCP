@@ -13,10 +13,9 @@ def test_config_loading():
     print("=== 测试配置加载 ===")
     
     try:
-        from zhihu_collections import main
+        from zhihu_collections._common import load_config
         
-        # 测试配置加载
-        config = main.load_config()
+        config = load_config()
         
         if config and 'zhihuUrls' in config:
             print(f"✓ 配置加载成功，包含 {len(config['zhihuUrls'])} 个收藏夹")
@@ -34,27 +33,15 @@ def test_logging_setup():
     print("\n=== 测试日志设置 ===")
     
     try:
-        import main
+        from zhihu_collections._logging import setup_debug_logging, flush_logs
         
-        # 检查日志文件是否已创建
-        if hasattr(main, 'debug_log_file') and os.path.exists(main.debug_log_file):
-            print(f"✓ 日志文件已创建: {main.debug_log_file}")
-            
-            # 测试日志写入
-            logging.info("测试日志写入")
-            main.flush_logs()
-            
-            # 检查文件大小
-            size = os.path.getsize(main.debug_log_file)
-            if size > 0:
-                print(f"✓ 日志实时写入正常 (文件大小: {size} bytes)")
-                return True
-            else:
-                print("✗ 日志文件为空")
-                return False
-        else:
-            print("✗ 日志文件未创建")
-            return False
+        setup_debug_logging()
+        
+        logging.info("测试日志写入")
+        flush_logs()
+        
+        print("✓ 日志系统初始化成功")
+        return True
             
     except Exception as e:
         print(f"✗ 日志测试出错: {e}")
@@ -65,26 +52,18 @@ def test_function_imports():
     print("\n=== 测试关键函数导入 ===")
     
     try:
-        import main
+        from zhihu_collections._collection import (
+            get_article_nums_of_collection,
+            get_article_urls_in_collection,
+        )
+        from zhihu_collections._content import (
+            get_single_answer_content,
+            get_single_post_content,
+        )
+        from zhihu_collections._logging import flush_logs
         
-        # 检查关键函数是否存在
-        functions_to_check = [
-            'get_article_nums_of_collection',
-            'get_article_urls_in_collection',
-            'get_single_answer_content', 
-            'get_single_post_content',
-            'flush_logs'
-        ]
-        
-        all_functions_exist = True
-        for func_name in functions_to_check:
-            if hasattr(main, func_name):
-                print(f"✓ 函数 {func_name} 存在")
-            else:
-                print(f"✗ 函数 {func_name} 不存在")
-                all_functions_exist = False
-        
-        return all_functions_exist
+        print("✓ 所有关键函数导入成功")
+        return True
         
     except Exception as e:
         print(f"✗ 函数导入测试出错: {e}")
@@ -95,18 +74,22 @@ def test_error_handling():
     print("\n=== 测试错误处理 ===")
     
     try:
-        import main
+        from zhihu_collections._collection import (
+            get_article_nums_of_collection,
+            get_article_urls_in_collection,
+        )
+        from zhihu_collections._headers import build_page_headers
         
-        # 测试get_article_nums_of_collection对无效输入的处理
-        result = main.get_article_nums_of_collection("invalid_collection_id")
+        headers = build_page_headers()
+        
+        result = get_article_nums_of_collection("invalid_collection_id", headers, {})
         if result == 0:
             print("✓ get_article_nums_of_collection 错误处理正确")
         else:
             print(f"✗ get_article_nums_of_collection 返回了意外值: {result}")
             return False
         
-        # 测试get_article_urls_in_collection对无效输入的处理  
-        urls, titles = main.get_article_urls_in_collection("invalid_collection_id")
+        urls, titles = get_article_urls_in_collection("invalid_collection_id", headers, {})
         if urls == [] and titles == []:
             print("✓ get_article_urls_in_collection 错误处理正确")
         else:

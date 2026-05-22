@@ -14,13 +14,15 @@ def test_with_actual_function():
     test_url = "https://zhuanlan.zhihu.com/p/684702206"
     
     try:
-        from zhihu_collections import main
+        from zhihu_collections._content import get_single_post_content
+        from zhihu_collections._headers import build_page_headers, build_api_headers
         
         print(f"测试URL: {test_url}")
         print("调用get_single_post_content函数...")
         
-        # 调用修复后的函数
-        result = main.get_single_post_content(test_url)
+        headers = build_page_headers()
+        api_headers = build_api_headers()
+        result = get_single_post_content(test_url, headers, {}, api_headers, None)
         
         # 分析结果
         if isinstance(result, str):

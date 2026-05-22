@@ -42,14 +42,11 @@ def test_key_functions():
         with open('src/zhihu_collections/main.py', 'r', encoding='utf-8') as f:
             content = f.read()
         
-        # 检查关键函数是否定义
+        # 检查 main.py 精简后仅保留入口函数
         key_functions = [
-            'def get_article_nums_of_collection(',
-            'def get_article_urls_in_collection(',
-            'def get_single_answer_content(',
-            'def get_single_post_content(',
-            'def flush_logs(',
-            'def setup_debug_logging('
+            'def main(',
+            'from zhihu_collections._collection import process_single_collection',
+            'from zhihu_collections._export import create_export_context',
         ]
         
         all_found = True

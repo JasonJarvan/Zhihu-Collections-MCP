@@ -1,6 +1,7 @@
 import pytest
 from unittest import mock
-from zhihu_collections.main import ObsidianStyleConverter, StandardStyleConverter, ExportContext
+from zhihu_collections._converter import ObsidianStyleConverter, StandardStyleConverter
+from zhihu_collections._export import ExportContext
 
 
 def _make_context():

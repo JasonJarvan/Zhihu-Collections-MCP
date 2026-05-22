@@ -26,9 +26,11 @@ def test_config_loading():
         print(f"✗ 加载config.json失败: {str(e)}")
         return None
 
-def test_open_collection_logic(config):
+def test_open_collection_logic(sample_config):
     """测试openCollection逻辑"""
     print("\n=== 测试openCollection逻辑 ===")
+    
+    config = sample_config
     
     if not config:
         print("✗ 无法测试，配置为空")

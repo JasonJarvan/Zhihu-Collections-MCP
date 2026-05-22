@@ -5,8 +5,6 @@
 """
 
 import os
-import sys
-import json
 import asyncio
 from pathlib import Path
 
@@ -14,7 +12,11 @@ from mcp.server import Server
 from mcp.types import Tool, TextContent
 from mcp.server.stdio import stdio_server
 
-from zhihu_collections import main as main_module
+from zhihu_collections._common import load_config, load_cookies, parse_output_path
+from zhihu_collections._paths import get_output_path
+from zhihu_collections._headers import build_page_headers, build_api_headers
+from zhihu_collections._export import ExportContext, create_export_context
+from zhihu_collections._collection import process_single_collection, get_article_urls_in_collection
 from zhihu_collections import favorite_ops
 
 
@@ -23,7 +25,6 @@ async def main():
 
     @app.list_tools()
     async def list_tools() -> list[Tool]:
-        """列出所有可用的工具"""
         return [
             Tool(
                 name="list_collections",
@@ -141,7 +142,6 @@ async def main():
 
     @app.call_tool()
     async def call_tool(name: str, arguments: dict) -> list[TextContent]:
-        """处理工具调用"""
         try:
             if name == "list_collections":
                 return await _list_collections_handler()
@@ -160,13 +160,13 @@ async def main():
             else:
                 return [TextContent(type="text", text=f"未知工具: {name}")]
         except Exception as e:
+            import traceback
             return [
                 TextContent(type="text", text=f"错误: {str(e)}\n{traceback.format_exc()}")
             ]
 
     async def _list_collections_handler() -> list[TextContent]:
-        """处理list_collections工具调用"""
-        config = main_module.load_config()
+        config = load_config()
         collections = config.get("zhihuUrls", [])
 
         if not collections:
@@ -186,7 +186,6 @@ async def main():
         return [TextContent(type="text", text=result)]
 
     async def _export_collection_handler(args: dict) -> list[TextContent]:
-        """处理export_collection工具调用"""
         collection_url = args.get("collection_url")
         collection_name = args.get("collection_name", "")
         output_dir = args.get("output_dir", "")
@@ -199,11 +198,11 @@ async def main():
             collection_id_from_url = collection_url.split("?")[0].split("/")[-1]
             collection_name = f"收藏夹_{collection_id_from_url}"
 
-        config = main_module.load_config()
+        config = load_config()
         if output_dir:
-            output_path = main_module.parse_output_path(output_dir, config.get("os", ""))
+            output_path = parse_output_path(output_dir, config.get("os", ""))
         elif config.get("outputPath"):
-            output_path = main_module.parse_output_path(
+            output_path = parse_output_path(
                 config["outputPath"], config.get("os", "")
             )
         else:
@@ -213,10 +212,10 @@ async def main():
 
         result = f"🚀 开始导出收藏夹：{collection_name}\n"
         result += f"📎 URL: {collection_url}\n"
-        result += f"📁 输出目录: {main_module.get_output_path(collection_name, base_output_path)}\n\n"
+        result += f"📁 输出目录: {get_output_path(collection_name, base_output_path)}\n\n"
 
         if overwrite:
-            dir_path = main_module.get_output_path(collection_name, base_output_path)
+            dir_path = get_output_path(collection_name, base_output_path)
             if os.path.exists(dir_path):
                 removed = 0
                 for fname in os.listdir(dir_path):
@@ -234,15 +233,9 @@ async def main():
                 result += f"📝 删除了 {removed} 个不完整的文件，准备重新下载\n\n"
 
         try:
-            context = main_module.ExportContext(
-                base_output_path=base_output_path,
-                headers=main_module._build_page_headers(),
-                api_headers=main_module._build_api_headers(),
-                cookies=main_module.load_cookies(),
-                markdown_format=config.get("markdownFormat", "obsidian"),
-            )
+            context = create_export_context(config=config, base_output_path=base_output_path)
 
-            main_module.process_single_collection(collection_name, collection_url, context)
+            process_single_collection(collection_name, collection_url, context)
             result += "✅ 导出完成！"
         except Exception as e:
             result += f"❌ 导出失败: {str(e)}"
@@ -250,7 +243,6 @@ async def main():
         return [TextContent(type="text", text=result)]
 
     async def _get_collection_info_handler(args: dict) -> list[TextContent]:
-        """处理get_collection_info工具调用"""
         collection_url = args.get("collection_url")
 
         if not collection_url:
@@ -258,10 +250,10 @@ async def main():
 
         try:
             collection_id = collection_url.split("?")[0].split("/")[-1]
-            urls, titles = main_module.get_article_urls_in_collection(
+            urls, titles = get_article_urls_in_collection(
                 collection_id,
-                main_module._build_page_headers(),
-                main_module.load_cookies(),
+                build_page_headers(),
+                load_cookies(),
             )
 
             result = f"📊 收藏夹信息\n\n"
@@ -280,13 +272,12 @@ async def main():
             return [TextContent(type="text", text=f"获取收藏夹信息失败: {str(e)}")]
 
     async def _search_collections_handler(args: dict) -> list[TextContent]:
-        """处理search_collections工具调用"""
         keyword = args.get("keyword", "")
 
         if not keyword:
             return [TextContent(type="text", text="错误: 需要提供keyword参数")]
 
-        config = main_module.load_config()
+        config = load_config()
         collections = config.get("zhihuUrls", [])
 
         if not collections:
@@ -312,7 +303,6 @@ async def main():
         return [TextContent(type="text", text=result)]
 
     async def _remove_from_collection_handler(args: dict) -> list[TextContent]:
-        """处理remove_from_collection工具调用"""
         collection_url = args.get("collection_url", "").strip()
         article_url = args.get("article_url", "").strip()
 
@@ -331,7 +321,6 @@ async def main():
         return [TextContent(type="text", text=result)]
 
     async def _add_to_collection_handler(args: dict) -> list[TextContent]:
-        """处理add_to_collection工具调用 —— 收藏文章"""
         collection_url = args.get("collection_url", "").strip()
         article_url = args.get("article_url", "").strip()
 
@@ -350,7 +339,6 @@ async def main():
         return [TextContent(type="text", text=result)]
 
     async def _move_to_collection_handler(args: dict) -> list[TextContent]:
-        """处理move_to_collection工具调用 —— 移动文章到其他收藏夹"""
         from_url = args.get("from_collection_url", "").strip()
         to_url = args.get("to_collection_url", "").strip()
         article_url = args.get("article_url", "").strip()
@@ -379,6 +367,4 @@ async def main():
 
 
 if __name__ == "__main__":
-    import traceback
-
     asyncio.run(main())

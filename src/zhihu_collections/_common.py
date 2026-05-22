@@ -1,19 +1,26 @@
 # -*- coding:utf-8 -*-
+from __future__ import annotations
+
 import json
 import logging
 import os
 import pathlib
 import platform
+from typing import Any, Optional
 
 
-def load_cookies(cookies_path=None):
+def load_cookies(cookies_path: Optional[str] = None) -> dict[str, str]:
+    """从 cookies.json 加载知乎认证 cookies
+
+    :return: cookies 字典，若文件不存在则返回空字典
+    """
     if cookies_path is None:
         cookies_path = os.path.join(os.getcwd(), "cookies.json")
 
     try:
         with open(cookies_path, "r", encoding="utf-8") as f:
             cookies_list = json.load(f)
-        cookies_dict = {}
+        cookies_dict: dict[str, str] = {}
         for cookie in cookies_list:
             cookies_dict[cookie["name"]] = cookie["value"]
         return cookies_dict
@@ -27,17 +34,21 @@ def load_cookies(cookies_path=None):
         return {}
 
 
-def load_config():
+def load_config() -> dict[str, Any]:
+    """从 config.json 加载主配置
+
+    :return: 配置字典，若文件不存在则返回默认空配置
+    """
     try:
         with open("config.json", "r", encoding="utf-8") as f:
-            config = json.load(f)
-            return config
+            return json.load(f)
     except FileNotFoundError:
         print("未找到 config.json 文件，请创建并配置收藏夹信息")
         return {"zhihuUrls": [], "outputPath": "", "os": ""}
 
 
-def get_current_os():
+def get_current_os() -> str:
+    """检测当前操作系统类型"""
     system = platform.system().lower()
     if system == "windows":
         return "windows"
@@ -49,7 +60,15 @@ def get_current_os():
         return "unknown"
 
 
-def parse_output_path(path_str, os_type):
+def parse_output_path(path_str: str, os_type: str) -> Optional[pathlib.Path]:
+    """跨平台路径解析，处理不同操作系统的路径格式
+
+    支持 Windows/Linux/macOS/Cygwin 等路径格式。
+
+    :param path_str: 原始路径字符串
+    :param os_type: 操作系统类型标识
+    :return: 解析后的 Path 对象，失败返回 None
+    """
     if not path_str:
         return None
 
