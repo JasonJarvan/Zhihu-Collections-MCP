@@ -54,6 +54,11 @@ async def list_tools() -> list[Tool]:
                         "type": "string",
                         "description": "输出目录路径（可选，默认为downloads）",
                     },
+                    "overwrite": {
+                        "type": "boolean",
+                        "description": "是否覆盖已存在的文件（true=重新下载补全内容，false=跳过已存在的，默认false）",
+                        "default": False,
+                    },
                 },
                 "required": ["collection_url"],
             },
@@ -194,6 +199,7 @@ async def export_collection_handler(args: dict) -> list[TextContent]:
     collection_url = args.get("collection_url")
     collection_name = args.get("collection_name", "")
     output_dir = args.get("output_dir", "")
+    overwrite = args.get("overwrite", False)
 
     if not collection_url:
         return [TextContent(type="text", text="错误: 需要提供collection_url参数")]
@@ -222,6 +228,26 @@ async def export_collection_handler(args: dict) -> list[TextContent]:
     result = f"🚀 开始导出收藏夹：{collection_name}\n"
     result += f"📎 URL: {collection_url}\n"
     result += f"📁 输出目录: {main_module.get_output_path(collection_name)}\n\n"
+
+    # 覆盖模式：删除内容不完整的文件（仅有URL和简短摘要）
+    if overwrite:
+        dir_path = main_module.get_output_path(collection_name)
+        if os.path.exists(dir_path):
+            removed = 0
+            for fname in os.listdir(dir_path):
+                if not fname.endswith(".md"):
+                    continue
+                fpath = os.path.join(dir_path, fname)
+                try:
+                    with open(fpath, "r", encoding="utf-8") as fh:
+                        lines = fh.readlines()
+                    # 如果文件少于5行（只有URL+2-3行摘要），视为不完整
+                    if len(lines) < 5:
+                        os.remove(fpath)
+                        removed += 1
+                except:
+                    pass
+            result += f"📝 删除了 {removed} 个不完整的文件，准备重新下载\n\n"
 
     # 执行导出
     try:

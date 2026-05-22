@@ -373,6 +373,8 @@ headers = {
     "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6,zh-TW;q=0.5",
     "Accept-Encoding": "gzip, deflate",
     "Referer": "https://www.zhihu.com/",
+    "x-zse-93": "101_3_3.0",
+    "x-zse-96": "2.0_3pMeV7de2ZCOYdR1sA1_MPH3NUYhNeCg9c2jOYKNOL3F2lnZg5HE02o0HSgWHX2aRdK5Oj8bSpSRRWM6IXefO0eQH2pD2LvjFFecfICcrswg8P0gMcPAqHrJ5kHeGYQBJQsr8q6NLTKcPHCqyGR9ov8kXFwGbe_LFNbqYpJTgYrKOLCuqA2ASU6pI-DNswzSqPcz8QdYnDkBMQf0KpLcJyftiBwOZzbfDNEFQAGAfCNWzIQzhNeRJdXqVFyGqqLoDo8w2eBp6ZsfgxHtEirXyBoWMV9FUSZHTY7msV7_VrK3e4ty5x0e7_LEu5",
     "sec-ch-ua": '"Microsoft Edge";v="147", "Not.A/Brand";v="8", "Chromium";v="147"',
     "sec-ch-ua-mobile": "?0",
     "sec-ch-ua-platform": '"Windows"',
@@ -383,13 +385,17 @@ headers = {
     "Upgrade-Insecure-Requests": "1",
 }
 
-# API 请求的 headers（用于获取回答内容）
+# API 请求的 headers（用于获取回答/专栏内容）
+# 注: x-zse-93/x-zse-96 是知乎专栏文章 API 必需的反爬头，缺一不可
+# 值由知乎前端 JS 动态生成，若失效需从浏览器请求中重新提取
 api_headers = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36",
     "Accept": "*/*",
     "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
     "Referer": "https://www.zhihu.com/",
     "x-requested-with": "fetch",
+    "x-zse-93": "101_3_3.0",
+    "x-zse-96": "2.0_3pMeV7de2ZCOYdR1sA1_MPH3NUYhNeCg9c2jOYKNOL3F2lnZg5HE02o0HSgWHX2aRdK5Oj8bSpSRRWM6IXefO0eQH2pD2LvjFFecfICcrswg8P0gMcPAqHrJ5kHeGYQBJQsr8q6NLTKcPHCqyGR9ov8kXFwGbe_LFNbqYpJTgYrKOLCuqA2ASU6pI-DNswzSqPcz8QdYnDkBMQf0KpLcJyftiBwOZzbfDNEFQAGAfCNWzIQzhNeRJdXqVFyGqqLoDo8w2eBp6ZsfgxHtEirXyBoWMV9FUSZHTY7msV7_VrK3e4ty5x0e7_LEu5",
     "sec-ch-ua": '"Microsoft Edge";v="147", "Not.A/Brand";v="8", "Chromium";v="147"',
     "sec-ch-ua-mobile": "?0",
     "sec-ch-ua-platform": '"Windows"',
@@ -435,9 +441,16 @@ class ObsidianStyleConverter(MarkdownConverter):
             if not os.path.exists(assetsDir):
                 os.makedirs(assetsDir)
 
-            img_content = requests.get(
-                url=src, headers=headers, cookies=cookies
-            ).content
+            try:
+                img_content = requests.get(
+                    url=src, headers=headers, cookies=cookies, timeout=30
+                ).content
+            except Exception as img_e:
+                # 图片下载失败不致命，保留原始 URL
+                logging.warning(f"图片下载失败: {src} - {img_e}")
+                result = "![%s](%s)\n\n" % (alt, src)
+                return result
+            
             img_content_name = src.split("?")[0].split("/")[-1]
 
             imgPath = os.path.join(assetsDir, img_content_name)
@@ -450,7 +463,8 @@ class ObsidianStyleConverter(MarkdownConverter):
         except Exception as e:
             logging.error(f"convert_img error: {str(e)}")
             logging.error(f"Traceback: {traceback.format_exc()}")
-            raise
+            # 不 raise，降级为保留原始图片 URL
+            return "![%s](%s)\n\n" % (alt, src)
 
     def convert_a(self, *args, **kwargs):
         logging.debug(f"convert_a called with args: {args}, kwargs={kwargs}")
@@ -567,7 +581,7 @@ def get_article_nums_of_collection(collection_id):
         collection_url = "https://www.zhihu.com/api/v4/collections/{}/items".format(
             collection_id
         )
-        html = requests.get(collection_url, headers=headers, cookies=cookies)
+        html = requests.get(collection_url, headers=headers, cookies=cookies, timeout=30)
         html.raise_for_status()
 
         # 页面总数
@@ -601,7 +615,7 @@ def get_article_urls_in_collection(collection_id):
         )
         try:
             logging.info(f"请求收藏夹API: offset={offset}, limit={limit}")
-            html = requests.get(collection_url, headers=headers, cookies=cookies)
+            html = requests.get(collection_url, headers=headers, cookies=cookies, timeout=30)
             html.raise_for_status()
             content = html.json()
             logging.info(f"成功获取 {len(content.get('data', []))} 个项目")
@@ -638,6 +652,10 @@ def get_article_urls_in_collection(collection_id):
 
 # 获得单条答案的数据
 def get_single_answer_content(answer_url):
+    # zvideo/pin 内容不支持，快速返回避免 HTTP 超时浪费
+    if '/zvideo/' in answer_url or '/pin/' in answer_url:
+        return -1
+
     logging.debug(f"开始获取回答内容: {answer_url}")
     flush_logs()
 
@@ -649,8 +667,8 @@ def get_single_answer_content(answer_url):
     answer_id = answer_id_match.group(1) if answer_id_match else None
 
     try:
-        # 发送请求
-        html_content = requests.get(answer_url, headers=headers, cookies=cookies)
+        # 发送请求（加 timeout 防网络卡死）
+        html_content = requests.get(answer_url, headers=headers, cookies=cookies, timeout=30)
         logging.debug(f"HTTP请求状态码: {html_content.status_code}")
 
         # 如果返回403，尝试使用API备用方案
@@ -666,7 +684,7 @@ def get_single_answer_content(answer_url):
 
                 try:
                     api_response = requests.get(
-                        api_url, headers=api_headers, cookies=cookies
+                        api_url, headers=api_headers, cookies=cookies, timeout=30
                     )
                     api_response.raise_for_status()
                     api_data = api_response.json()
@@ -825,8 +843,36 @@ def get_single_post_content(paper_url):
     logging.debug(f"开始获取专栏文章内容: {paper_url}")
     flush_logs()
 
-    # 专栏文章可能较大，添加重试机制
-    max_retries = 3
+    # 如果HTTP请求失败，尝试API备用方案
+    # 从URL提取article_id: zhuanlan.zhihu.com/p/{id}
+    import re
+    article_id_match = re.search(r"zhuanlan\.zhihu\.com/p/(\d+)", paper_url)
+    article_id = article_id_match.group(1) if article_id_match else None
+
+    # 尝试API备用方案（先试，因为API更可靠）
+    if article_id:
+        try:
+            api_url = f"https://www.zhihu.com/api/v4/articles/{article_id}?include=content"
+            api_response = requests.get(api_url, headers=api_headers, cookies=cookies, timeout=30)
+            if api_response.status_code == 200:
+                api_data = api_response.json()
+                if api_data and "content" in api_data:
+                    content_html = api_data["content"]
+                    logging.info(f"API备用方案成功获取专栏内容，长度: {len(content_html)}")
+                    flush_logs()
+                    soup = BeautifulSoup(content_html, "lxml")
+                    for el in soup.find_all("style"):
+                        el.extract()
+                    for el in soup.select('img[src*="data:image/svg+xml"]'):
+                        el.extract()
+                    post_content_html = html_template(soup)
+                    return post_content_html
+        except Exception as api_e:
+            logging.warning(f"专栏API备用方案失败: {str(api_e)}")
+            flush_logs()
+
+    # API失败时回退到HTML请求
+    max_retries = 2
     last_error = None
 
     for retry in range(max_retries):
