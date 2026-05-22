@@ -1,5 +1,5 @@
 {
-  "windows_example": {
+    "windows_example": {
     "zhihuUrls": [
       {
         "name": "赚钱-金融市场",
@@ -12,7 +12,8 @@
     ],
     "outputPath": "D:\\Documents\\ShengDocument\\人工智能训练师\\所有考题资料(1)\\所有考题资料\\考题和评分表",
     "os": "windows",
-    "openCollection": false
+    "openCollection": false,
+    "markdownFormat": "obsidian"
   },
   "linux_example": {
     "zhihuUrls": [

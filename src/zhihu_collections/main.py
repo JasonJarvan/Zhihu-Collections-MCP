@@ -302,27 +302,43 @@ api_headers = {
 }
 
 
-class ObsidianStyleConverter(MarkdownConverter):
-    """
-    Create a custom MarkdownConverter that adds two newlines after an image
-    """
-
+class _BaseStyleConverter(MarkdownConverter):
     def chomp(self, text):
-        """
-        If the text in an inline tag like b, a, or em contains a leading or trailing
-        space, strip the string and return a space as suffix of prefix, if needed.
-        This function is used to prevent conversions like
-            <b> foo</b> => ** foo**
-        """
         prefix = " " if text and text[0] == " " else ""
         suffix = " " if text and text[-1] == " " else ""
         text = text.strip()
         return (prefix, suffix, text)
 
+    def _download_image(self, src):
+        global current_collection_name
+        downloadDir = get_output_path(current_collection_name)
+        if not os.path.exists(downloadDir):
+            os.makedirs(downloadDir)
+        assetsDir = os.path.join(downloadDir, "assets")
+        if not os.path.exists(assetsDir):
+            os.makedirs(assetsDir)
+
+        try:
+            img_content = requests.get(
+                url=src, headers=headers, cookies=cookies, timeout=30
+            ).content
+        except Exception as img_e:
+            logging.warning(f"图片下载失败: {src} - {img_e}")
+            return None, None
+
+        img_content_name = src.split("?")[0].split("/")[-1]
+        imgPath = os.path.join(assetsDir, img_content_name)
+        with open(imgPath, "wb") as fp:
+            fp.write(img_content)
+
+        return img_content_name, assetsDir
+
+    def _format_image(self, filename, alt):
+        raise NotImplementedError
+
     def convert_img(self, *args, **kwargs):
         logging.debug(f"convert_img called with args: {args}, kwargs={kwargs}")
         try:
-            # 提取参数，适配不同的调用方式
             if len(args) >= 2:
                 el, text = args[0], args[1]
             else:
@@ -332,44 +348,23 @@ class ObsidianStyleConverter(MarkdownConverter):
             alt = el.attrs.get("alt", None) or ""
             src = el.attrs.get("src", None) or ""
 
-            # 使用全局变量获取当前收藏夹名称
-            global current_collection_name
-            downloadDir = get_output_path(current_collection_name)
-            if not os.path.exists(downloadDir):
-                os.makedirs(downloadDir)
-            assetsDir = os.path.join(downloadDir, "assets")
-            if not os.path.exists(assetsDir):
-                os.makedirs(assetsDir)
+            filename, _ = self._download_image(src)
+            if filename is None:
+                return "![%s](%s)\n\n" % (alt, src)
 
-            try:
-                img_content = requests.get(
-                    url=src, headers=headers, cookies=cookies, timeout=30
-                ).content
-            except Exception as img_e:
-                # 图片下载失败不致命，保留原始 URL
-                logging.warning(f"图片下载失败: {src} - {img_e}")
-                result = "![%s](%s)\n\n" % (alt, src)
-                return result
-            
-            img_content_name = src.split("?")[0].split("/")[-1]
-
-            imgPath = os.path.join(assetsDir, img_content_name)
-            with open(imgPath, "wb") as fp:
-                fp.write(img_content)
-
-            result = "![[%s]]\n(%s)\n\n" % (img_content_name, alt)
+            result = self._format_image(filename, alt)
             logging.debug(f"convert_img returning: {result}")
             return result
         except Exception as e:
             logging.error(f"convert_img error: {str(e)}")
             logging.error(f"Traceback: {traceback.format_exc()}")
-            # 不 raise，降级为保留原始图片 URL
+            alt = el.attrs.get("alt", "") if hasattr(el, "attrs") else ""
+            src = el.attrs.get("src", "") if hasattr(el, "attrs") else ""
             return "![%s](%s)\n\n" % (alt, src)
 
     def convert_a(self, *args, **kwargs):
         logging.debug(f"convert_a called with args: {args}, kwargs={kwargs}")
         try:
-            # 提取参数，适配不同的调用方式
             if len(args) >= 2:
                 el, text = args[0], args[1]
                 convert_as_inline = args[2] if len(args) > 2 else None
@@ -382,41 +377,33 @@ class ObsidianStyleConverter(MarkdownConverter):
             if not text:
                 return ""
             href = el.get("href")
-            # title = el.get('title')
 
             if el.get("aria-labelledby") and el.get("aria-labelledby").find("ref") > -1:
                 text = text.replace("[", "[^")
                 result = "%s" % text
-                logging.debug(f"convert_a returning (aria-labelledby): {result}")
                 return result
             if (el.attrs and "data-reference-link" in el.attrs) or (
                 "class" in el.attrs and ("ReferenceList-backLink" in el.attrs["class"])
             ):
                 text = "[^{}]: ".format(href[5])
                 result = "%s" % text
-                logging.debug(f"convert_a returning (reference-link): {result}")
                 return result
 
-            # 调用父类方法，适配不同的参数组合
             try:
                 if convert_as_inline is not None:
-                    result = super(ObsidianStyleConverter, self).convert_a(
-                        el, text, convert_as_inline, **kwargs
+                    result = MarkdownConverter.convert_a(
+                        self, el, text, convert_as_inline, **kwargs
                     )
                 else:
-                    result = super(ObsidianStyleConverter, self).convert_a(
-                        el, text, **kwargs
+                    result = MarkdownConverter.convert_a(
+                        self, el, text, **kwargs
                     )
             except TypeError:
-                # 如果参数不匹配，尝试不同的调用方式
                 try:
-                    result = super(ObsidianStyleConverter, self).convert_a(
-                        *args, **kwargs
-                    )
+                    result = MarkdownConverter.convert_a(self, *args, **kwargs)
                 except TypeError:
-                    result = super(ObsidianStyleConverter, self).convert_a(el, text)
+                    result = MarkdownConverter.convert_a(self, el, text)
 
-            logging.debug(f"convert_a returning (super): {result}")
             return result
         except Exception as e:
             logging.error(f"convert_a error: {str(e)}")
@@ -426,7 +413,6 @@ class ObsidianStyleConverter(MarkdownConverter):
     def convert_li(self, *args, **kwargs):
         logging.debug(f"convert_li called with args: {args}, kwargs={kwargs}")
         try:
-            # 提取参数，适配不同的调用方式
             if len(args) >= 2:
                 el, text = args[0], args[1]
                 convert_as_inline = args[2] if len(args) > 2 else None
@@ -437,29 +423,23 @@ class ObsidianStyleConverter(MarkdownConverter):
 
             if el and el.find("a", {"aria-label": "back"}) is not None:
                 result = "%s\n" % ((text or "").strip())
-                logging.debug(f"convert_li returning (aria-label back): {result}")
                 return result
 
-            # 调用父类方法，适配不同的参数组合
             try:
                 if convert_as_inline is not None:
-                    result = super(ObsidianStyleConverter, self).convert_li(
-                        el, text, convert_as_inline, **kwargs
+                    result = MarkdownConverter.convert_li(
+                        self, el, text, convert_as_inline, **kwargs
                     )
                 else:
-                    result = super(ObsidianStyleConverter, self).convert_li(
-                        el, text, **kwargs
+                    result = MarkdownConverter.convert_li(
+                        self, el, text, **kwargs
                     )
             except TypeError:
-                # 如果参数不匹配，尝试不同的调用方式
                 try:
-                    result = super(ObsidianStyleConverter, self).convert_li(
-                        *args, **kwargs
-                    )
+                    result = MarkdownConverter.convert_li(self, *args, **kwargs)
                 except TypeError:
-                    result = super(ObsidianStyleConverter, self).convert_li(el, text)
+                    result = MarkdownConverter.convert_li(self, el, text)
 
-            logging.debug(f"convert_li returning (super): {result}")
             return result
         except Exception as e:
             logging.error(f"convert_li error: {str(e)}")
@@ -467,8 +447,20 @@ class ObsidianStyleConverter(MarkdownConverter):
             raise
 
 
+class ObsidianStyleConverter(_BaseStyleConverter):
+    def _format_image(self, filename, alt):
+        return "![[%s]]\n(%s)\n\n" % (filename, alt)
+
+
+class StandardStyleConverter(_BaseStyleConverter):
+    def _format_image(self, filename, alt):
+        return "![%s](%s)\n\n" % (alt, filename)
+
+
 def markdownify(html, **options):
-    return ObsidianStyleConverter(**options).convert(html)
+    fmt = options.pop("format", "obsidian")
+    converter_cls = ObsidianStyleConverter if fmt == "obsidian" else StandardStyleConverter
+    return converter_cls(**options).convert(html)
 
 
 # 获取收藏夹的回答总数
@@ -1100,7 +1092,8 @@ def process_single_collection(collection_name, collection_url):
                 flush_logs()
                 continue
 
-            md = markdownify(content, heading_style="ATX")
+            markdown_fmt = config.get("markdownFormat", "obsidian")
+            md = markdownify(content, format=markdown_fmt, heading_style="ATX")
             md = "> %s\n" % url + md
 
             with open(file_path, "w", encoding="utf-8") as md_file:
@@ -1174,6 +1167,8 @@ def main():
         print("提示：请运行 zhihu-fetch 自动获取收藏夹列表")
         sys.exit(1)
 
+    markdown_fmt = config.get("markdownFormat", "obsidian")
+    print(f"Markdown 格式: {markdown_fmt} ({'Obsidian wiki-link' if markdown_fmt == 'obsidian' else '标准格式'})")
     print(f"共找到 {len(zhihu_collections)} 个收藏夹待处理")
 
     for collection in zhihu_collections:
