@@ -33,14 +33,8 @@ def load_config():
             config = json.load(f)
             return config
     except FileNotFoundError:
-        print("未找到 config.json 文件，尝试读取旧版 zhihuUrls.json 文件")
-        try:
-            with open("zhihuUrls.json", "r", encoding="utf-8") as f:
-                urls = json.load(f)
-                return {"zhihuUrls": urls, "outputPath": "", "os": ""}
-        except FileNotFoundError:
-            print("未找到配置文件，请创建 config.json 文件并配置收藏夹信息")
-            return {"zhihuUrls": [], "outputPath": "", "os": ""}
+        print("未找到 config.json 文件，请创建并配置收藏夹信息")
+        return {"zhihuUrls": [], "outputPath": "", "os": ""}
 
 
 def get_current_os():

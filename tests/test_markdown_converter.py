@@ -54,12 +54,12 @@ class TestStandardStyleConverter:
     def test_format_image(self):
         converter = StandardStyleConverter()
         result = converter._format_image("test.png", "alt text")
-        assert "![alt text](test.png)" in result
+        assert "![alt text](assets/test.png)" in result
 
     def test_format_image_no_alt(self):
         converter = StandardStyleConverter()
         result = converter._format_image("image.jpg", "")
-        assert "![](image.jpg)" in result
+        assert "![](assets/image.jpg)" in result
 
     def test_inherits_zhihu_conversions(self):
         from tests.conftest import MockElement

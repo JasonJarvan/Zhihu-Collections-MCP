@@ -1,5 +1,6 @@
 {
-    "windows_example": {
+  "_comment": "\"markdown\" 可选值: \"obsidian\" (默认, Obsidian wiki-link 图片语法) 或 \"standard\" (标准 Markdown 图片语法)",
+  "windows_example": {
     "zhihuUrls": [
       {
         "name": "赚钱-金融市场",
@@ -28,7 +29,8 @@
     ],
     "outputPath": "/usr/local/lib/node_modules/",
     "os": "linux",
-    "openCollection": false
+    "openCollection": false,
+    "markdownFormat": "obsidian"
   },
   "macos_example": {
     "zhihuUrls": [
@@ -43,7 +45,8 @@
     ],
     "outputPath": "~/Documents/ZhihuExports",
     "os": "macos",
-    "openCollection": false
+    "openCollection": false,
+    "markdownFormat": "obsidian"
   },
   "freebsd_example": {
     "zhihuUrls": [
@@ -54,7 +57,8 @@
     ],
     "outputPath": "/usr/local/share/zhihu-exports",
     "os": "freebsd",
-    "openCollection": false
+    "openCollection": false,
+    "markdownFormat": "obsidian"
   },
   "solaris_example": {
     "zhihuUrls": [
@@ -65,7 +69,8 @@
     ],
     "outputPath": "/export/home/user/zhihu-data",
     "os": "solaris",
-    "openCollection": false
+    "openCollection": false,
+    "markdownFormat": "obsidian"
   },
   "cygwin_example": {
     "zhihuUrls": [
@@ -76,7 +81,8 @@
     ],
     "outputPath": "/cygdrive/d/Documents/ZhihuExports",
     "os": "cygwin",
-    "openCollection": false
+    "openCollection": false,
+    "markdownFormat": "obsidian"
   },
   "auto_detect_example": {
     "zhihuUrls": [
@@ -91,7 +97,8 @@
     ],
     "outputPath": "~/Downloads/ZhihuCollections",
     "os": "",
-    "openCollection": false
+    "openCollection": false,
+    "markdownFormat": "obsidian"
   },
   "default_example": {
     "zhihuUrls": [
@@ -106,12 +113,26 @@
     ],
     "outputPath": "",
     "os": "",
-    "openCollection": false
+    "openCollection": false,
+    "markdownFormat": "obsidian"
+  },
+  "standard_markdown_example": {
+    "zhihuUrls": [
+      {
+        "name": "赚钱-金融市场",
+        "url": "https://www.zhihu.com/collection/630144608"
+      }
+    ],
+    "outputPath": "~/Documents/ZhihuExports",
+    "os": "",
+    "openCollection": false,
+    "markdownFormat": "standard"
   },
   "open_collection_example": {
     "zhihuUrls": [],
     "outputPath": "",
     "os": "",
-    "openCollection": true
+    "openCollection": true,
+    "markdownFormat": "obsidian"
   }
 }

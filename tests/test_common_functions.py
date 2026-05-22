@@ -49,21 +49,6 @@ class TestLoadConfig:
         finally:
             os.chdir(old_cwd)
 
-    def test_load_fallback_to_zhihuUrls(self, temp_dir):
-        old_cwd = os.getcwd()
-        try:
-            os.chdir(temp_dir)
-            zhihu_urls = [
-                {"name": "fallback", "url": "https://www.zhihu.com/collection/999"},
-            ]
-            with open("zhihuUrls.json", "w", encoding="utf-8") as f:
-                json.dump(zhihu_urls, f)
-
-            config = load_config()
-            assert config["zhihuUrls"] == zhihu_urls
-        finally:
-            os.chdir(old_cwd)
-
 
 class TestGetCurrentOs:
     def test_returns_string(self):

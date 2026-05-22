@@ -14,22 +14,19 @@ from zhihu_collections.favorite_ops import parse_article_info, unfavorite_conten
 import json
 import logging
 import traceback
+import hashlib
 
 from markdownify import MarkdownConverter
 
 
-# 读取配置文件
-
-
-# 全局变量存储当前处理的收藏夹名称
-current_collection_name = ""
-
-# 全局日志数据存储
-processing_log = []
-
-# 全局配置和路径管理
-config = {}
-base_output_path = None
+class ExportContext:
+    def __init__(self, base_output_path, headers, api_headers, cookies, markdown_format):
+        self.base_output_path = base_output_path
+        self.headers = headers
+        self.api_headers = api_headers
+        self.cookies = cookies
+        self.markdown_format = markdown_format
+        self.processing_log = []
 
 
 # 设置调试日志
@@ -73,12 +70,12 @@ def setup_debug_logging():
         if hasattr(handler, "flush"):
             handler.flush()
 
-    return debug_log_file
+    pass
 
 
 # 重新配置日志路径
-def reconfigure_logging():
-    logs_dir = get_logs_path()
+def reconfigure_logging(base_output_path):
+    logs_dir = get_logs_path(base_output_path)
     if not os.path.exists(logs_dir):
         os.makedirs(logs_dir)
 
@@ -112,14 +109,12 @@ def reconfigure_logging():
 
 
 # 获取输出路径的函数
-def get_output_path(collection_name):
+def get_output_path(collection_name, base_output_path):
     """
     根据配置获取输出路径
     如果配置了outputPath，使用自定义路径
     否则使用默认的downloads路径
     """
-    global base_output_path
-
     if base_output_path:
         # 使用自定义输出路径
         return os.path.join(str(base_output_path), collection_name)
@@ -262,11 +257,11 @@ def analyze_page_error(soup, response, url):
     return "页面结构可能发生变化，无法解析文章内容"
 
 
-debug_log_file = setup_debug_logging()
+setup_debug_logging()
 
-cookies = load_cookies()
 
-headers = {
+def _build_page_headers():
+    return {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36",
     "Connection": "keep-alive",
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
@@ -283,12 +278,11 @@ headers = {
     "Sec-Fetch-Site": "same-site",
     "Sec-Fetch-User": "?1",
     "Upgrade-Insecure-Requests": "1",
-}
+    }
 
-# API 请求的 headers（用于获取回答/专栏内容）
-# 注: x-zse-93/x-zse-96 是知乎专栏文章 API 必需的反爬头，缺一不可
-# 值由知乎前端 JS 动态生成，若失效需从浏览器请求中重新提取
-api_headers = {
+
+def _build_api_headers():
+    return {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36",
     "Accept": "*/*",
     "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
@@ -299,7 +293,7 @@ api_headers = {
     "sec-ch-ua": '"Microsoft Edge";v="147", "Not.A/Brand";v="8", "Chromium";v="147"',
     "sec-ch-ua-mobile": "?0",
     "sec-ch-ua-platform": '"Windows"',
-}
+    }
 
 
 class _BaseStyleConverter(MarkdownConverter):
@@ -327,6 +321,9 @@ class _BaseStyleConverter(MarkdownConverter):
             return None, None
 
         img_content_name = src.split("?")[0].split("/")[-1]
+        if "/equation" in src:
+            url_hash = hashlib.sha256(src.encode()).hexdigest()[:12]
+            img_content_name = f"equation_{url_hash}.svg"
         imgPath = os.path.join(assetsDir, img_content_name)
         with open(imgPath, "wb") as fp:
             fp.write(img_content)
@@ -454,7 +451,7 @@ class ObsidianStyleConverter(_BaseStyleConverter):
 
 class StandardStyleConverter(_BaseStyleConverter):
     def _format_image(self, filename, alt):
-        return "![%s](%s)\n\n" % (alt, filename)
+        return "![%s](assets/%s)\n\n" % (alt, filename)
 
 
 def markdownify(html, **options):
@@ -1137,7 +1134,7 @@ def remove_articles_from_collection(collection_url, article_urls):
 
 
 def main():
-    global base_output_path
+    global base_output_path, config
 
     config = load_config()
 
