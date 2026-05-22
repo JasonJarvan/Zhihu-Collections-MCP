@@ -17,22 +17,22 @@
 
 import json
 import logging
-import os
 import random
 import re
 import time
 
 import requests
 
+from zhihu_collections._common import load_cookies as _load_cookies_raw
+
+
 # ──────────────────────────────────────────────
 # 请求延迟常量
 # ──────────────────────────────────────────────
 
-# 单次收藏/取消操作后的延迟（比 GET 更保守，写操作更易触发反爬）
 _OP_DELAY_MIN = 1.0
 _OP_DELAY_MAX = 3.0
 
-# 移动操作内部步骤间延迟（参照 main.py 的 random.randint(1, 5)）
 _MOVE_DELAY_MIN = 1
 _MOVE_DELAY_MAX = 5
 
@@ -40,30 +40,13 @@ _MOVE_DELAY_MAX = 5
 # Cookie 加载
 # ──────────────────────────────────────────────
 
-
-def _load_cookies():
-    """加载 cookies.json，返回 dict"""
-    try:
-        cookies_file = os.path.join(os.getcwd(), "cookies.json")
-        with open(cookies_file, "r", encoding="utf-8") as f:
-            cookies_list = json.load(f)
-        cookies_dict = {}
-        for cookie in cookies_list:
-            cookies_dict[cookie["name"]] = cookie["value"]
-        return cookies_dict
-    except FileNotFoundError:
-        logging.warning("未找到 cookies.json，收藏/取消收藏操作可能失败")
-        return {}
-
-
-# 模块级 cookies 缓存（延迟加载，支持 MCP server 热重载）
 _cookies = None
 
 
 def get_cookies():
     global _cookies
     if _cookies is None:
-        _cookies = _load_cookies()
+        _cookies = _load_cookies_raw()
     return _cookies
 
 

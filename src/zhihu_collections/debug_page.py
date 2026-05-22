@@ -4,19 +4,8 @@
 """
 import requests
 from bs4 import BeautifulSoup
-import json
+from zhihu_collections._common import load_cookies
 
-def load_cookies():
-    """加载cookies"""
-    try:
-        with open('cookies.json', 'r', encoding='utf-8') as f:
-            cookies_list = json.load(f)
-        cookies_dict = {}
-        for cookie in cookies_list:
-            cookies_dict[cookie['name']] = cookie['value']
-        return cookies_dict
-    except FileNotFoundError:
-        return {}
 
 def debug_page_structure():
     """调试页面结构"""
