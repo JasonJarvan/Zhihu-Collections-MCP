@@ -220,7 +220,7 @@ def process_single_collection(
                 format=markdown_fmt,
                 heading_style="ATX",
             )
-            md = "> %s\n" % url + md
+            md = "> %s\n\n" % url + md
 
             with open(file_path, "w", encoding="utf-8") as md_file:
                 md_file.write(md)
