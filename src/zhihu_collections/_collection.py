@@ -55,7 +55,7 @@ def get_article_urls_in_collection(
 ) -> tuple[list[str], list[str]]:
     """分页获取收藏夹中所有文章的 URL 和标题
 
-    :return: (url_list, title_list) 两个等长列表
+    :return: (url_list, title_list) 两个等长列表，按收藏时间从新到旧排序
     """
     collection_id = collection_id.replace("\n", "")
     logging.info(f"开始获取收藏夹 {collection_id} 的文章列表")
@@ -71,6 +71,8 @@ def get_article_urls_in_collection(
 
     url_list: list[str] = []
     title_list: list[str] = []
+    created_list: list[str] = []  # 收藏时间，用于排序
+
     while offset < article_nums:
         collection_url = (
             f"https://www.zhihu.com/api/v4/collections/{collection_id}/items"
@@ -91,10 +93,19 @@ def get_article_urls_in_collection(
         for el in content.get("data", []):
             try:
                 url_list.append(el["content"]["url"])
+                created_list.append(el.get("created", ""))
                 if el["content"]["type"] == "answer":
                     title_list.append(el["content"]["question"]["title"])
-                else:
+                elif el["content"]["type"] == "article":
                     title_list.append(el["content"]["title"])
+                elif el["content"]["type"] == "pin":
+                    title_list.append(
+                        el["content"].get("excerpt_title")
+                        or el["content"].get("content", "")[:50]
+                        or "想法"
+                    )
+                else:
+                    title_list.append(el["content"].get("title", "未知"))
                 logging.debug(f"添加文章: {el['content'].get('title', '未知标题')}")
             except Exception as e:
                 logging.warning(f"解析文章项目失败: {str(e)}")
@@ -106,11 +117,22 @@ def get_article_urls_in_collection(
                 print("********")
                 if len(url_list) > len(title_list):
                     url_list.pop()
+                if len(created_list) > len(url_list):
+                    created_list.pop()
 
         offset += limit
 
+    # 按收藏时间从新到旧排序
+    paired = sorted(
+        zip(url_list, title_list, created_list),
+        key=lambda x: x[2] or "",
+        reverse=True,
+    )
+    url_list, title_list, created_list = zip(*paired) if paired else ([], [], [])
+    url_list, title_list, created_list = list(url_list), list(title_list), list(created_list)
+
     logging.info(
-        f"收藏夹 {collection_id} 总共获取到 {len(url_list)} 个有效文章"
+        f"收藏夹 {collection_id} 总共获取到 {len(url_list)} 个有效文章（已按收藏时间排序）"
     )
     return url_list, title_list
 
@@ -119,6 +141,7 @@ def process_single_collection(
     collection_name: str,
     collection_url: str,
     context: ExportContext,
+    max_articles: int | None = None,
 ) -> None:
     """处理单个收藏夹：获取文章列表 → 逐篇下载 → 转换 Markdown → 保存
 
@@ -143,6 +166,13 @@ def process_single_collection(
             logging.warning(f"收藏夹 '{collection_name}' 没有获取到任何文章")
             flush_logs()
             return
+
+        # 只保留最新的 N 篇
+        if max_articles is not None and len(urls) > max_articles:
+            urls = urls[:max_articles]
+            titles = titles[:max_articles]
+            logging.info(f"只导出最新的 {max_articles} 篇文章")
+            flush_logs()
 
     except Exception as e:
         logging.error(f"处理收藏夹 '{collection_name}' 时发生错误: {str(e)}")

@@ -70,6 +70,10 @@ async def main():
                             "description": "是否覆盖已存在的文件（true=重新下载补全内容，false=跳过已存在的，默认false）",
                             "default": False,
                         },
+                        "max_articles": {
+                            "type": "integer",
+                            "description": "只导出最新的N篇文章（按收藏时间排序，默认全部导出）",
+                        },
                     },
                     "required": ["collection_url"],
                 },
@@ -205,6 +209,7 @@ async def main():
         collection_url = args.get("collection_url")
         collection_name = args.get("collection_name", "")
         overwrite = args.get("overwrite", False)
+        max_articles = args.get("max_articles", None)  # 新增：只导出最新N篇
 
         if not collection_url:
             return [TextContent(type="text", text="错误: 需要提供collection_url参数")]
@@ -242,7 +247,7 @@ async def main():
         try:
             context = create_export_context(config=config, base_output_path=base_output_path)
 
-            process_single_collection(collection_name, collection_url, context)
+            process_single_collection(collection_name, collection_url, context, max_articles=max_articles)
             result += "✅ 导出完成！"
         except Exception as e:
             result += f"❌ 导出失败: {str(e)}"
