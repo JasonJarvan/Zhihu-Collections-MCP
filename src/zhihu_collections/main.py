@@ -2,9 +2,16 @@
 """知乎收藏夹导出 — 命令行入口"""
 import argparse
 import sys
+import time
+
 from zhihu_collections._common import load_config, resolve_base_output_path
 from zhihu_collections._logging import setup_debug_logging, reconfigure_logging
-from zhihu_collections._export import create_export_context, save_processing_log
+from zhihu_collections._export import (
+    create_export_context,
+    save_processing_log,
+    save_summary,
+    summarize_export,
+)
 from zhihu_collections._collection import process_single_collection
 
 
@@ -64,8 +71,11 @@ def main() -> None:
     )
     print(f"共找到 {len(zhihu_collections)} 个收藏夹待处理")
 
+    started_at = time.monotonic()
     context = create_export_context(
-        config=config, base_output_path=base_output_path
+        config=config,
+        base_output_path=base_output_path,
+        started_at=started_at,
     )
 
     for collection in zhihu_collections:
@@ -79,8 +89,18 @@ def main() -> None:
         print(f"\n开始处理收藏夹: {collection_name}")
         process_single_collection(collection_name, collection_url, context)
 
+    finished_at = time.monotonic()
     print("\n所有收藏夹处理完毕!")
     save_processing_log(context.processing_log, context.base_output_path)
+
+    # 汇总统计:终端打印 + 单独 JSON 文件
+    summary = summarize_export(
+        context.processing_log,
+        context.base_output_path,
+        started_at,
+        finished_at,
+    )
+    save_summary(summary, context.base_output_path)
 
 
 if __name__ == "__main__":
