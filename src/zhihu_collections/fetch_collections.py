@@ -3,6 +3,7 @@
 独立的收藏夹获取脚本
 从知乎页面获取用户的所有收藏夹，并更新到config.json文件中
 """
+import argparse
 import os
 import json
 import requests
@@ -12,20 +13,48 @@ import random
 import logging
 from datetime import datetime
 
-from zhihu_collections._common import load_cookies, load_config, get_current_os, parse_output_path
+from zhihu_collections._common import (
+    load_cookies,
+    load_config,
+    get_current_os,
+    parse_output_path,
+    resolve_base_output_path,
+)
 
 
-def setup_logging():
-    """设置日志"""
+def build_arg_parser() -> argparse.ArgumentParser:
+    """构建命令行参数解析器"""
+    parser = argparse.ArgumentParser(
+        prog="zhihu-fetch",
+        description="从知乎抓取用户的所有收藏夹,并写入 config.json",
+    )
+    parser.add_argument(
+        "-o",
+        "--output",
+        dest="output_path",
+        metavar="PATH",
+        help="本次抓取过程的日志输出目录(不影响 config.json 的 outputPath),支持 ~ 展开",
+    )
+    return parser
+
+
+def setup_logging(logs_base: str | None = None):
+    """设置日志
+
+    :param logs_base: 日志根目录(绝对路径)。为 None 时回退到 ./downloads/
+    """
     # 获取日志目录
-    logs_dir = os.path.join(os.getcwd(), 'downloads', 'logs')
+    if logs_base:
+        logs_dir = os.path.join(logs_base, 'logs')
+    else:
+        logs_dir = os.path.join(os.getcwd(), 'downloads', 'logs')
     if not os.path.exists(logs_dir):
         os.makedirs(logs_dir)
-    
+
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     log_filename = f"openCollection_{timestamp}.log"
     log_path = os.path.join(logs_dir, log_filename)
-    
+
     logging.basicConfig(
         level=logging.DEBUG,
         format='%(asctime)s - %(levelname)s - %(message)s',
@@ -35,7 +64,7 @@ def setup_logging():
         ],
         force=True
     )
-    
+
     return log_path
 
 
@@ -184,14 +213,34 @@ def save_collections_log(collections, log_path):
 
 def main():
     """主函数"""
+    args = build_arg_parser().parse_args()
+
     print("=" * 60)
     print("知乎收藏夹获取工具")
     print("=" * 60)
-    
+
+    # 解析输出目录(CLI > config.json > 默认 downloads/),仅影响本次日志目录
+    config = load_config()
+    base_output_path, source = resolve_base_output_path(
+        args.output_path, config
+    )
+
+    if base_output_path:
+        logs_base = str(base_output_path)
+        print(f"使用{source}日志根目录: {logs_base}")
+    else:
+        logs_base = None
+        if source != "默认":
+            print(f"{source}指定的输出路径解析失败，使用默认目录")
+        else:
+            print("使用默认日志根目录: downloads/")
+
     # 设置日志
-    log_path = setup_logging()
+    log_path = setup_logging(logs_base=logs_base)
     logging.info("开始执行收藏夹获取任务")
     print(f"日志文件: {log_path}")
+    if args.output_path:
+        print("提示: --output 仅影响本次抓取的日志目录,不会写回 config.json")
     
     # 加载cookies
     cookies = load_cookies()

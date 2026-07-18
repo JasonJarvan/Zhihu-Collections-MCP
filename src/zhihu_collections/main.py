@@ -1,29 +1,46 @@
 # -*- coding:utf-8 -*-
 """知乎收藏夹导出 — 命令行入口"""
+import argparse
 import sys
-from zhihu_collections._common import load_config, parse_output_path
+from zhihu_collections._common import load_config, resolve_base_output_path
 from zhihu_collections._logging import setup_debug_logging, reconfigure_logging
 from zhihu_collections._export import create_export_context, save_processing_log
 from zhihu_collections._collection import process_single_collection
 
 
+def build_arg_parser() -> argparse.ArgumentParser:
+    """构建命令行参数解析器"""
+    parser = argparse.ArgumentParser(
+        prog="zhihu-export",
+        description="将知乎收藏夹批量导出为 Markdown 文件",
+    )
+    parser.add_argument(
+        "-o",
+        "--output",
+        dest="output_path",
+        metavar="PATH",
+        help="输出目录(覆盖 config.json 中的 outputPath),支持 ~ 展开与绝对/相对路径",
+    )
+    return parser
+
+
 def main() -> None:
     """主入口：加载配置 → 遍历收藏夹 → 批量导出 Markdown"""
+    args = build_arg_parser().parse_args()
+
     config = load_config()
 
-    if config.get("outputPath"):
-        base_output_path = parse_output_path(
-            config["outputPath"], config.get("os", "")
-        )
-        if base_output_path:
-            print(f"使用自定义输出路径: {base_output_path}")
-            reconfigure_logging(base_output_path)
-        else:
-            print("输出路径解析失败，使用默认路径")
-            base_output_path = None
+    base_output_path, source = resolve_base_output_path(args.output_path, config)
+
+    if base_output_path:
+        print(f"使用{source}输出路径: {base_output_path}")
+        reconfigure_logging(base_output_path)
     else:
+        if source != "默认":
+            print(f"{source}指定的输出路径解析失败，使用默认路径")
+        else:
+            print("使用默认输出路径: downloads/")
         base_output_path = None
-        print("使用默认输出路径: downloads/")
 
     setup_debug_logging()
 

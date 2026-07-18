@@ -4,9 +4,9 @@
 
 - **Package manager**: `uv` (not pip). Install: `uv sync`. Dev deps: `uv sync --group dev`.
 - **CLI entrypoints** (defined in `pyproject.toml`):
-  - `uv run zhihu-export` — export collections to Markdown
+  - `uv run zhihu-export` — export collections to Markdown. Supports `-o/--output PATH` to override `config.json`'s `outputPath` (priority: CLI > config > default `downloads/`).
   - `uv run zhihu-mcp-server` — start MCP stdio server
-  - `uv run zhihu-fetch` — auto-fetch collection list into config
+  - `uv run zhihu-fetch` — auto-fetch collection list into config. Supports `-o/--output PATH` to override `config.json`'s `outputPath` (priority: CLI > config > default `downloads/`).
 - **Test**: `uv run pytest` (pytest config in `pyproject.toml`, `testpaths = ["tests"]`). Some `tests/test_*.py` are standalone scripts run with `python3 tests/test_*.py` (not pytest).
 - **Build**: hatchling (`pyproject.toml:build-system`)
 - **Python**: >= 3.10

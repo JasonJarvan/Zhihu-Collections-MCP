@@ -60,6 +60,32 @@ def get_current_os() -> str:
         return "unknown"
 
 
+def resolve_base_output_path(
+    cli_output_path: Optional[str], config: dict[str, Any]
+) -> tuple[Optional[pathlib.Path], str]:
+    """按 CLI 参数 > config.json > 默认 downloads/ 的优先级解析输出目录
+
+    :param cli_output_path: 命令行 -o/--output 参数值,未传则为 None
+    :param config: 已加载的 config.json 字典
+    :return: (绝对路径 Path 对象或 None, 来源标识: "命令行参数" / "config.json" / "默认")
+    """
+    config_output_path = config.get("outputPath", "")
+
+    if cli_output_path:
+        base_output_path = parse_output_path(
+            cli_output_path, config.get("os", "")
+        )
+        return base_output_path, "命令行参数"
+
+    if config_output_path:
+        base_output_path = parse_output_path(
+            config_output_path, config.get("os", "")
+        )
+        return base_output_path, "config.json"
+
+    return None, "默认"
+
+
 def parse_output_path(path_str: str, os_type: str) -> Optional[pathlib.Path]:
     """跨平台路径解析，处理不同操作系统的路径格式
 
