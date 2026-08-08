@@ -19,3 +19,4 @@ config.json
 .venv/
 /blogs
 config.json.bak
+.env

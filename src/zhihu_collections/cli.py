@@ -4,8 +4,10 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 import time
+from pathlib import Path
 
 from zhihu_collections._common import load_config, resolve_base_output_path
 from zhihu_collections._logging import setup_debug_logging, reconfigure_logging
@@ -27,6 +29,23 @@ from zhihu_collections._operations import (
     resolve_output_path,
 )
 from zhihu_collections.fetch_collections import main as fetch_main_impl
+
+
+def _load_dotenv() -> None:
+    """加载 .env 文件中的环境变量（仅在 CLI 入口调用）"""
+    env_path = Path(__file__).resolve().parent.parent.parent / ".env"
+    if not env_path.exists():
+        return
+    with open(env_path) as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            k, v = line.split("=", 1)
+            k = k.strip()
+            v = v.strip().strip('"').strip("'")
+            if k not in os.environ:
+                os.environ[k] = v
 
 
 def _cmd_list(_args: argparse.Namespace) -> None:
@@ -256,6 +275,7 @@ COMMAND_HANDLERS = {
 
 def main() -> None:
     """CLI 主入口"""
+    _load_dotenv()
     parser = build_parser()
     args = parser.parse_args()
 
