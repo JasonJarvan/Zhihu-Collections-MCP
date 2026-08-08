@@ -17,9 +17,10 @@ dependencies = [
 ]
 
 [project.scripts]
-zhihu-export = "zhihu_collections.main:main"
+zhihu = "zhihu_collections.cli:main"
+zhihu-export = "zhihu_collections.cli:export_all_main"
 zhihu-mcp-server = "zhihu_collections.mcp_server:cli"
-zhihu-fetch = "zhihu_collections.fetch_collections:main"
+zhihu-fetch = "zhihu_collections.cli:fetch_main"
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]

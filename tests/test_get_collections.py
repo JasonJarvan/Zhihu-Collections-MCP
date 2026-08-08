@@ -1,16 +1,16 @@
 # -*- coding:utf-8 -*-
 """
-测试get_collections模块的功能
+测试 fetch_collections 模块的功能
 """
 try:
     import sys
     import os
-    from zhihu_collections.get_collections import (
-        load_cookies,
+    from zhihu_collections._common import load_cookies
+    from zhihu_collections.fetch_collections import (
         get_collections_from_page,
         get_all_collections,
-        save_collections_to_json,
-        process_open_collection_mode
+        update_config_with_collections,
+        save_collections_log,
     )
     import json
 except ImportError as e:
@@ -26,7 +26,6 @@ def test_load_cookies():
         cookies = load_cookies()
         if cookies:
             print(f"✓ 成功加载cookies，包含{len(cookies)}个cookie")
-            # 显示部分cookie名称（不显示值保护隐私）
             cookie_names = list(cookies.keys())[:5]
             print(f"  前5个cookie名称: {cookie_names}")
         else:
@@ -37,73 +36,79 @@ def test_load_cookies():
         return {}
 
 
-def test_save_collections():
-    """测试保存收藏夹列表功能"""
-    print("\n=== 测试保存收藏夹列表 ===")
-    
-    # 测试数据
+def test_update_config(tmp_dir, monkeypatch):
+    """测试更新 config.json 功能（pytest 风格）"""
+    print("\n=== 测试更新配置文件 ===")
+
     test_collections = [
         {"name": "测试收藏夹1", "url": "https://www.zhihu.com/collection/123456"},
-        {"name": "测试收藏夹2", "url": "https://www.zhihu.com/collection/789012"}
+        {"name": "测试收藏夹2", "url": "https://www.zhihu.com/collection/789012"},
     ]
-    
-    test_filename = 'test/test_collections_output.json'
-    
+
+    config_path = os.path.join(tmp_dir, "config.json")
+    monkeypatch.setattr("zhihu_collections.fetch_collections.load_config", lambda: {
+        "zhihuUrls": [],
+        "openCollection": True,
+    })
+
+    import builtins
+    original_open = builtins.open
+
+    def mock_open(file, mode="r", **kwargs):
+        if file == "config.json":
+            return original_open(config_path, mode, **kwargs)
+        return original_open(file, mode, **kwargs)
+
+    monkeypatch.setattr(builtins, "open", mock_open)
+
     try:
-        success = save_collections_to_json(test_collections, test_filename)
-        
-        if success:
-            print("✓ 保存测试收藏夹列表成功")
-            
-            # 验证文件内容
-            with open(test_filename, 'r', encoding='utf-8') as f:
-                loaded_data = json.load(f)
-            
-            if loaded_data == test_collections:
-                print("✓ 文件内容验证成功")
-            else:
-                print("✗ 文件内容验证失败")
-            
-            # 清理测试文件
-            os.remove(test_filename)
-            print("✓ 清理测试文件完成")
-        else:
-            print("✗ 保存测试收藏夹列表失败")
-            
-    except Exception as e:
-        print(f"✗ 测试保存功能失败: {str(e)}")
+        config = {"zhihuUrls": [], "openCollection": True}
+        with open("config.json", "w", encoding="utf-8") as f:
+            json.dump(config, f)
+
+        success = update_config_with_collections(test_collections)
+
+        with open("config.json", "r", encoding="utf-8") as f:
+            updated = json.load(f)
+
+        assert success
+        assert updated["zhihuUrls"] == test_collections
+        assert updated["openCollection"] is False
+        print("✓ 更新配置文件成功，openCollection 已自动设为 false")
+
+    finally:
+        if os.path.exists("config.json"):
+            os.remove("config.json")
 
 
 def test_mock_collections():
     """模拟测试收藏夹获取（不进行真实网络请求）"""
     print("\n=== 模拟测试收藏夹获取 ===")
-    
-    # 模拟收藏夹数据
+
     mock_collections = [
         {"name": "技术学习", "url": "https://www.zhihu.com/collection/111111"},
         {"name": "投资理财", "url": "https://www.zhihu.com/collection/222222"},
-        {"name": "生活感悟", "url": "https://www.zhihu.com/collection/333333"}
+        {"name": "生活感悟", "url": "https://www.zhihu.com/collection/333333"},
     ]
-    
+
     print(f"✓ 模拟获取到{len(mock_collections)}个收藏夹")
     for i, collection in enumerate(mock_collections):
         print(f"  {i+1}. {collection['name']}: {collection['url']}")
-    
+
     return mock_collections
 
 
 def test_module_imports():
     """测试模块导入"""
     print("\n=== 测试模块导入 ===")
-    
+
     functions_to_test = [
-        'load_cookies',
-        'get_collections_from_page', 
-        'get_all_collections',
-        'save_collections_to_json',
-        'process_open_collection_mode'
+        "get_collections_from_page",
+        "get_all_collections",
+        "update_config_with_collections",
+        "save_collections_log",
     ]
-    
+
     for func_name in functions_to_test:
         try:
             func = globals()[func_name]
@@ -112,48 +117,23 @@ def test_module_imports():
             print(f"✗ {func_name}: 导入失败")
 
 
-def test_integration():
-    """集成测试（模拟完整流程）"""
-    print("\n=== 集成测试 ===")
-    
-    print("模拟完整的openCollection流程:")
-    print("1. 加载cookies...")
-    cookies = test_load_cookies()
-    
-    print("\n2. 模拟获取收藏夹列表...")
-    mock_collections = test_mock_collections()
-    
-    print("\n3. 测试保存功能...")
-    test_save_collections()
-    
-    print("\n✓ 模拟流程完成")
-    print("  实际使用时，get_collections_from_page 和 get_all_collections 会进行网络请求")
-
-
 def main():
     """主测试函数"""
-    print("开始测试get_collections模块...")
-    
-    # 测试模块导入
+    print("开始测试 fetch_collections 模块...")
+
     test_module_imports()
-    
-    # 测试各个功能
     test_load_cookies()
-    test_save_collections()
     test_mock_collections()
-    
-    # 集成测试
-    test_integration()
-    
+
     print(f"\n{'='*50}")
     print("测试完成!")
     print(f"{'='*50}")
-    
+
     print("\n如何进行真实测试:")
     print("1. 确保cookies.json文件存在且包含有效的知乎登录信息")
-    print("2. 运行: python3 -c \"from get_collections import process_open_collection_mode; process_open_collection_mode()\"")
-    print("3. 或者直接运行: python3 get_collections.py")
+    print("2. 运行: uv run zhihu fetch")
+    print("3. 运行: uv run zhihu export-all")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
