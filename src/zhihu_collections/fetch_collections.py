@@ -11,19 +11,54 @@ import json
 import logging
 import os
 import random
+import re
 import time
 from datetime import datetime
 
 import requests
-from bs4 import BeautifulSoup
 
 from zhihu_collections._common import (
     load_cookies,
     load_config,
     resolve_base_output_path,
 )
-from zhihu_collections._headers import build_page_headers
+from zhihu_collections._headers import build_page_headers, build_api_headers
 from zhihu_collections._logging import setup_debug_logging, reconfigure_logging
+
+
+def _extract_user_token(html_text: str) -> str | None:
+    """从知乎收藏夹页面的 js-initialData 中提取当前用户 urlToken
+
+    知乎 /collections/mine 页面为客户端渲染（SPA），收藏夹数据不再直接
+    内嵌于 HTML（旧版 class=SelfCollectionItem 已废弃），需从 initialData
+    的 entities.users 中提取用户标识，再调用 API 获取收藏夹列表。
+
+    :param html_text: 页面 HTML 文本
+    :return: 用户 urlToken，未找到返回 None
+    """
+    m = re.search(
+        r'<script id="js-initialData"[^>]*>(.*?)</script>', html_text, re.S
+    )
+    if not m:
+        return None
+    try:
+        data = json.loads(m.group(1))
+        users = data.get("initialState", {}).get("entities", {}).get("users", {})
+        for user in users.values():
+            token = user.get("urlToken")
+            if token:
+                return token
+    except Exception as e:
+        logging.error(f"解析 initialData 用户信息失败: {str(e)}")
+    return None
+
+
+def _normalize_collection_url(url: str) -> str:
+    """将 api.zhihu.com 的收藏夹 URL 规范化为 www.zhihu.com 页面地址"""
+    m = re.search(r"/collections/(\d+)", url)
+    if m:
+        return f"https://www.zhihu.com/collection/{m.group(1)}"
+    return url
 
 
 def setup_collection_fetch_logging(logs_base: str | None = None) -> str:
@@ -60,6 +95,10 @@ def get_collections_from_page(
 ) -> tuple[list[dict], bool]:
     """从知乎收藏夹页面解析收藏夹信息
 
+    知乎 /collections/mine 为客户端渲染（SPA），收藏夹数据需通过
+    /api/v4/people/{url_token}/collections 接口获取，不能再从 HTML
+    的 SelfCollectionItem class 解析（旧版解析已失效）。
+
     :param page_num: 页码
     :param cookies: 认证 cookies 字典
     :return: (收藏夹列表, 是否有更多项目)
@@ -71,27 +110,37 @@ def get_collections_from_page(
         response = requests.get(url, headers=headers, cookies=cookies)
         response.raise_for_status()
 
-        soup = BeautifulSoup(response.text, "html.parser")
-        collection_items = soup.find_all(class_="SelfCollectionItem")
+        # 1. 从页面 initialData 提取用户 urlToken
+        user_token = _extract_user_token(response.text)
+        if not user_token:
+            logging.error("无法从页面中提取用户 urlToken")
+            return [], False
+
+        # 2. 通过 API 获取收藏夹列表（带登录态可包含私密收藏夹）
+        api_url = (
+            f"https://www.zhihu.com/api/v4/people/{user_token}/collections"
+            f"?offset={(page_num - 1) * 20}&limit=20&include=is_following,is_mine"
+        )
+        api_headers = build_api_headers()
+        api_resp = requests.get(
+            api_url, headers=api_headers, cookies=cookies, timeout=30
+        )
+        api_resp.raise_for_status()
+        data = api_resp.json()
+
         collections: list[dict] = []
-
-        for item in collection_items:
-            title_element = item.find(class_="SelfCollectionItem-title")
-            if not title_element:
+        for item in data.get("data", []):
+            title = item.get("title")
+            item_url = item.get("url")
+            if not title or not item_url:
                 continue
+            collections.append(
+                {"name": title, "url": _normalize_collection_url(item_url)}
+            )
 
-            name = title_element.get_text(strip=True)
-            link_element = title_element.find("a")
-            if not link_element or not link_element.get("href"):
-                continue
-
-            href: str = link_element.get("href")
-            if href.startswith("/"):
-                href = "https://www.zhihu.com" + href
-
-            collections.append({"name": name, "url": href})
-
-        return collections, len(collection_items) > 0
+        paging = data.get("paging", {})
+        has_items = len(collections) > 0 or not paging.get("is_end", True)
+        return collections, has_items
 
     except Exception as e:
         logging.error(f"获取第{page_num}页收藏夹失败: {str(e)}")
