@@ -447,3 +447,217 @@ def get_single_post_content(
                 post_content = f"该文章链接获取失败: {last_error}"
 
     return html_template(str(post_content))
+
+
+# ──────────────────────────────────────────────
+# 想法(pin) / 视频(zvideo)
+# ──────────────────────────────────────────────
+
+
+def _build_pin_html_from_segments(content_list: list) -> str:
+    """从 pin 的 content 分段列表组装 HTML（content_html 字段缺失时的 fallback）
+
+    pin content 每段是 dict，type 字段区分类型：
+      - text:  含 content/own_text HTML 文本，可带 title
+      - image: 含 original_url/url 原图地址
+      - video: 含 thumbnail 封面地址
+      - link:  含 url 和 title
+      - poll:  投票，暂不支持，跳过
+    """
+    parts: list[str] = []
+    for seg in content_list:
+        if not isinstance(seg, dict):
+            continue
+        seg_type = seg.get("type", "")
+        if seg_type == "text":
+            html_text = seg.get("content") or seg.get("own_text") or ""
+            if html_text:
+                parts.append(html_text)
+        elif seg_type == "image":
+            src = seg.get("original_url") or seg.get("url") or ""
+            if src:
+                parts.append(f'<img src="{src}">')
+        elif seg_type == "video":
+            thumb = seg.get("thumbnail") or ""
+            if thumb:
+                parts.append(f'<img src="{thumb}">')
+        elif seg_type == "link":
+            link_url = seg.get("url") or seg.get("original_url") or ""
+            link_title = seg.get("title") or link_url
+            if link_url:
+                parts.append(f'<p><a href="{link_url}">{link_title}</a></p>')
+        # poll 等其他类型暂不支持，跳过
+    return "".join(parts)
+
+
+def get_single_pin_content(
+    pin_url: str,
+    headers: dict[str, str],
+    cookies: dict[str, str],
+    api_headers: dict[str, str],
+    base_output_path: Optional[str],
+) -> str | int:
+    """获取知乎想法(pin)的 HTML 内容
+
+    优先使用 API (/api/v4/pins/{id}) 的 content_html 字段；
+    content_html 缺失时从 content 分段列表组装。
+    想法中的图片若为缩略图(src 带 /50/)，会替换为 data-original 原图地址，
+    从而走现有 markdownify 图片下载流程保存到 assets/。
+
+    :return: HTML 内容字符串，失败返回 -1
+    """
+    logging.debug(f"开始获取想法内容: {pin_url}")
+    flush_logs()
+
+    pin_id_match = re.search(r"/pin/(\d+)", pin_url)
+    pin_id = pin_id_match.group(1) if pin_id_match else None
+    if not pin_id:
+        logging.error(f"无法从URL提取pin_id: {pin_url}")
+        flush_logs()
+        return -1
+
+    try:
+        api_url = f"https://www.zhihu.com/api/v4/pins/{pin_id}"
+        api_response = requests.get(
+            api_url, headers=api_headers, cookies=cookies, timeout=30
+        )
+        api_response.raise_for_status()
+        api_data = api_response.json()
+    except Exception as e:
+        logging.error(f"获取想法内容时发生错误: {str(e)}")
+        logging.error(f"URL: {pin_url}")
+        flush_logs()
+        return -1
+
+    content_html = (api_data.get("content_html") or "").strip()
+    if not content_html:
+        content_html = _build_pin_html_from_segments(api_data.get("content") or [])
+
+    if not content_html.strip():
+        logging.error(f"想法内容为空: {pin_url}")
+        _save_debug_html(str(api_data), pin_url, "pin", base_output_path)
+        flush_logs()
+        return -1
+
+    soup = BeautifulSoup(content_html, "lxml")
+    # 缩略图替换为原图（content_html 中图片 src 常为 50px 缩略图）
+    for img in soup.find_all("img"):
+        original = img.get("data-original")
+        if original:
+            img["src"] = original
+    _clean_content_soup(soup)
+    return html_template(str(soup))
+
+
+def _format_duration_seconds(seconds: float) -> str:
+    """把秒数格式化为 mm:ss 或 h:mm:ss"""
+    total = int(seconds)
+    h, rem = divmod(total, 3600)
+    m, s = divmod(rem, 60)
+    if h:
+        return f"{h}:{m:02d}:{s:02d}"
+    return f"{m}:{s:02d}"
+
+
+def get_single_zvideo_content(
+    zvideo_url: str,
+    headers: dict[str, str],
+    cookies: dict[str, str],
+    api_headers: dict[str, str],
+    base_output_path: Optional[str],
+) -> str | int:
+    """获取知乎视频(zvideo)的 HTML 内容
+
+    视频本体无法转换为 Markdown 文本，因此生成一个"视频信息页"：
+    标题、封面图、作者、统计数据、简介描述和各清晰度播放链接。
+    封面图会走现有图片下载流程保存到 assets/。
+
+    :return: HTML 内容字符串，失败返回 -1
+    """
+    logging.debug(f"开始获取视频内容: {zvideo_url}")
+    flush_logs()
+
+    zvideo_id_match = re.search(r"/zvideo/(\d+)", zvideo_url)
+    zvideo_id = zvideo_id_match.group(1) if zvideo_id_match else None
+    if not zvideo_id:
+        logging.error(f"无法从URL提取zvideo_id: {zvideo_url}")
+        flush_logs()
+        return -1
+
+    try:
+        api_url = f"https://www.zhihu.com/api/v4/zvideos/{zvideo_id}"
+        api_response = requests.get(
+            api_url, headers=api_headers, cookies=cookies, timeout=30
+        )
+        api_response.raise_for_status()
+        api_data = api_response.json()
+    except Exception as e:
+        logging.error(f"获取视频内容时发生错误: {str(e)}")
+        logging.error(f"URL: {zvideo_url}")
+        flush_logs()
+        return -1
+
+    parts: list[str] = []
+    title = (api_data.get("title") or "").strip()
+    if title:
+        parts.append(f"<h1>{title}</h1>")
+
+    # 封面图
+    video = api_data.get("video") or {}
+    thumbnail = video.get("thumbnail") or api_data.get("image_url") or ""
+    if thumbnail:
+        parts.append(f'<p><img src="{thumbnail}"></p>')
+
+    # 作者
+    author = api_data.get("author") or {}
+    author_name = author.get("name") or ""
+    if author_name:
+        parts.append(f"<p><strong>作者:</strong> {author_name}</p>")
+
+    # 统计信息
+    stats: list[str] = []
+    duration = video.get("duration")
+    if duration:
+        stats.append(f"时长 {_format_duration_seconds(duration)}")
+    if api_data.get("play_count") is not None:
+        stats.append(f"播放 {api_data['play_count']:,}")
+    if api_data.get("voteup_count") is not None:
+        stats.append(f"赞同 {api_data['voteup_count']:,}")
+    if api_data.get("comment_count") is not None:
+        stats.append(f"评论 {api_data['comment_count']:,}")
+    if api_data.get("published_at"):
+        stats.append(
+            f"发布于 {time.strftime('%Y-%m-%d', time.localtime(api_data['published_at']))}"
+        )
+    if stats:
+        parts.append(f"<p>{' | '.join(stats)}</p>")
+
+    # 简介描述
+    description = (api_data.get("description") or "").strip()
+    if description:
+        parts.append(f"<blockquote>{description}</blockquote>")
+
+    # 播放链接（带时效性）
+    playlist = video.get("playlist_v2") or video.get("playlist") or {}
+    if playlist:
+        parts.append("<p><strong>播放地址:</strong></p>")
+        parts.append("<ul>")
+        quality_labels = {
+            "fhd": "超清 (FHD)",
+            "hd": "高清 (HD)",
+            "sd": "标清 (SD)",
+            "ld": "流畅 (LD)",
+        }
+        for quality in ("fhd", "hd", "sd", "ld"):
+            entry = playlist.get(quality)
+            if not entry:
+                continue
+            play_url = entry.get("play_url") or entry.get("url") or ""
+            if not play_url:
+                continue
+            label = quality_labels.get(quality, quality)
+            parts.append(f'<li><a href="{play_url}">{label}</a></li>')
+        parts.append("</ul>")
+        parts.append("<p><em>播放链接带时效性，若失效请访问原始页面。</em></p>")
+
+    return html_template("".join(parts))

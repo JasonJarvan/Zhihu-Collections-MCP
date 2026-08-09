@@ -12,7 +12,12 @@ from tqdm import tqdm
 
 from zhihu_collections._paths import get_output_path
 from zhihu_collections._logging import flush_logs
-from zhihu_collections._content import get_single_answer_content, get_single_post_content
+from zhihu_collections._content import (
+    get_single_answer_content,
+    get_single_post_content,
+    get_single_pin_content,
+    get_single_zvideo_content,
+)
 from zhihu_collections._converter import markdownify
 from zhihu_collections._export import (
     ExportContext,
@@ -99,9 +104,17 @@ def get_article_urls_in_collection(
                 elif el["content"]["type"] == "article":
                     title_list.append(el["content"]["title"])
                 elif el["content"]["type"] == "pin":
+                    pin_content = el["content"].get("content") or []
+                    pin_first_title = ""
+                    if (
+                        isinstance(pin_content, list)
+                        and pin_content
+                        and isinstance(pin_content[0], dict)
+                    ):
+                        pin_first_title = pin_content[0].get("title") or ""
                     title_list.append(
                         el["content"].get("excerpt_title")
-                        or el["content"].get("content", "")[:50]
+                        or pin_first_title
                         or "想法"
                     )
                 else:
@@ -220,6 +233,22 @@ def process_single_collection(
 
             if url.find("zhuanlan") != -1:
                 content = get_single_post_content(
+                    url,
+                    context.headers,
+                    context.cookies,
+                    context.api_headers,
+                    context.base_output_path,
+                )
+            elif "/pin/" in url:
+                content = get_single_pin_content(
+                    url,
+                    context.headers,
+                    context.cookies,
+                    context.api_headers,
+                    context.base_output_path,
+                )
+            elif "/zvideo/" in url:
+                content = get_single_zvideo_content(
                     url,
                     context.headers,
                     context.cookies,
