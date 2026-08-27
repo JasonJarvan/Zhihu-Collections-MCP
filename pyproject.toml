@@ -1,0 +1,32 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "zhihu-collections"
+version = "1.0.1"
+description = "导出知乎收藏夹为 Markdown 格式"
+requires-python = ">=3.10"
+dependencies = [
+    "requests",
+    "beautifulsoup4",
+    "markdownify",
+    "tqdm",
+    "lxml",
+    "mcp>=1.0.0",
+]
+
+[project.scripts]
+zhihu = "zhihu_collections.cli:main"
+zhihu-export = "zhihu_collections.cli:export_all_main"
+zhihu-mcp-server = "zhihu_collections.mcp_server:cli"
+zhihu-fetch = "zhihu_collections.cli:fetch_main"
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/zhihu_collections"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

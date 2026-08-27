@@ -1,9 +1,9 @@
 # Export-Zhihu-Collections
 
 ## 项目介绍
-一个功能强大的知乎收藏夹导出工具，支持将知乎收藏夹（公开和私密）批量导出为 Markdown 格式文件。支持自定义输出路径、跨平台兼容、图片下载和 Obsidian 兼容格式。支持使用大模型API一键生成文章总结。
+一个功能强大的知乎收藏夹导出工具，支持将知乎收藏夹（公开和私密）批量导出为 Markdown 格式文件。支持自定义输出路径、跨平台兼容、图片下载和 Obsidian 兼容格式。
 
-**同时提供 MCP Server**，可被 AI Agent (如 Claude Code) 直接调用，为大模型提供保存知乎收藏夹的能力。
+**同时提供 MCP Server**，可被 AI Agent (如 Claude Code) 直接调用，支持导出、收藏、取消收藏、移动文章到其他收藏夹。
 
 ## 主要特性
 
@@ -18,6 +18,7 @@
 - 🛠️ **健壮错误处理**: 单个文章失败不影响整体处理流程
 - 🔧 **增强调试支持**: 自动生成调试文件，便于问题排查
 - 🤖 **MCP 支持**: 提供 MCP Server，可被 AI Agent 调用
+- ⭐ **收藏管理**: 支持收藏、取消收藏、移动文章到其他收藏夹
 
 ---
 
@@ -29,6 +30,10 @@
 
 #### 安装
 ```bash
+# 使用 uv（推荐）
+uv sync
+
+# 或使用 pip
 pip install -r requirements.txt
 ```
 
@@ -54,7 +59,8 @@ cp config_examples.json config.json
     }
   ],
   "outputPath": "/path/to/your/output/directory",
-  "os": "linux"
+  "os": "linux",
+  "markdownFormat": "obsidian"
 }
 ```
 
@@ -64,13 +70,13 @@ cp config_examples.json config.json
 
 如果你想自动获取所有收藏夹，可以先运行：
 ```bash
-python fetch_collections.py
+uv run zhihu-fetch
 ```
 这将自动更新 `config.json` 文件中的收藏夹列表。
 
 #### 运行主程序
 ```bash
-python main.py
+uv run zhihu-export
 ```
 
 ---
@@ -81,14 +87,13 @@ python main.py
 
 #### 安装 MCP 依赖
 ```bash
-# 安装MCP包
-pip install mcp
+uv sync
 ```
 
 #### 启动 MCP Server
 
 ```bash
-python mcp_server.py
+uv run zhihu-mcp-server
 ```
 
 Server 会通过 stdio 通信，可以在 Claude Code 或其他 MCP 客户端中使用。
@@ -101,12 +106,9 @@ Server 会通过 stdio 通信，可以在 Claude Code 或其他 MCP 客户端中
 | `export_collection` | 导出指定知乎收藏夹为Markdown文件 |
 | `get_collection_info` | 获取指定收藏夹的基本信息（文章数量等） |
 | `search_collections` | 在配置文件中搜索包含关键词的收藏夹 |
-
-##### list_collections
-
-```python
-# 返回格式化的收藏夹列表
-```
+| `remove_from_collection` | 从收藏夹中取消收藏一篇文章 |
+| `add_to_collection` | 收藏一篇文章到指定收藏夹 |
+| `move_to_collection` | 将文章从一个收藏夹移动到另一个 |
 
 ##### export_collection
 
@@ -114,6 +116,7 @@ Server 会通过 stdio 通信，可以在 Claude Code 或其他 MCP 客户端中
 - `collection_url` (必需): 收藏夹URL
 - `collection_name` (可选): 收藏夹名称
 - `output_dir` (可选): 输出目录
+- `overwrite` (可选): 是否覆盖已存在文件（默认 false）
 
 ```python
 # 示例
@@ -124,15 +127,18 @@ export_collection(
 )
 ```
 
-##### get_collection_info
+##### add_to_collection / remove_from_collection
 
 参数：
 - `collection_url` (必需): 收藏夹URL
+- `article_url` (必需): 文章URL（支持回答/专栏/视频/想法）
 
-##### search_collections
+##### move_to_collection
 
 参数：
-- `keyword` (必需): 搜索关键词
+- `from_collection_url` (必需): 源收藏夹URL
+- `to_collection_url` (必需): 目标收藏夹URL
+- `article_url` (必需): 要移动的文章URL
 
 #### 在 Claude Code 中使用
 
@@ -157,6 +163,8 @@ export_collection(
 - "导出收藏夹 https://www.zhihu.com/collection/123456789"
 - "搜索包含Python的收藏夹"
 - "获取收藏夹 https://www.zhihu.com/collection/123456789 的文章数量"
+- "把这篇文章收藏到 https://www.zhihu.com/collection/123456789"
+- "从收藏夹中移除这篇文章"
 
 ---
 
@@ -164,8 +172,10 @@ export_collection(
 
 ### 基本配置
 - **zhihuUrls**: 收藏夹列表，每个收藏夹包含名称和 URL
-- **outputPath**: 自定义输出路径（可选，留空使用默认路径）
+- **outputPath**: 自定义输出路径（可选，留空使用默认 `downloads/` 目录）
 - **os**: 操作系统类型（可选，留空自动检测）
+- **markdownFormat**: Markdown 格式（可选，`"obsidian"` 或 `"standard"`，默认 `"obsidian"`）
+- **openCollection**: 收藏夹获取模式（可选，设为 `true` 触发自动获取）
 
 ### 支持的操作系统和路径格式
 - **Windows**: `"D:\\Documents\\ZhihuExports"` 或 `"D:/Documents/ZhihuExports"`
@@ -182,6 +192,33 @@ export_collection(
 ]
 ```
 
+
+## 项目结构
+
+```
+├── src/zhihu_collections/  # Python 包
+│   ├── __init__.py          # 公共导出
+│   ├── _common.py           # 配置加载、路径解析
+│   ├── _logging.py          # 日志配置
+│   ├── _headers.py          # HTTP 请求头
+│   ├── _paths.py            # 输出路径管理
+│   ├── _converter.py        # Markdown 转换器 (Obsidian/标准)
+│   ├── _content.py          # 内容获取与 HTML 解析
+│   ├── _collection.py       # 收藏夹处理流程
+│   ├── _export.py           # 导出上下文与文件操作
+│   ├── main.py              # 命令行入口
+│   ├── favorite_ops.py      # 收藏/取消收藏/移动操作
+│   ├── mcp_server.py        # MCP Server
+│   ├── export_all.py        # 批量导出
+│   ├── fetch_collections.py # 收藏夹列表获取
+│   ├── get_collections.py
+│   └── utils.py             # 文件名清理工具
+├── tests/                   # 测试文件
+├── pyproject.toml           # uv 项目配置
+├── config.json              # 主配置文件
+├── config_examples.json     # 配置示例文件
+└── cookies.json             # 认证 cookies（可选）
+```
 
 ## 输出结果
 
@@ -235,7 +272,7 @@ export_collection(
 ### 调试支持
 - **日志文件**: `downloads/logs/debug_*.log` 包含详细的处理信息
 - **调试HTML**: `downloads/debug/debug_*.html` 保存无法解析的页面
-- **测试脚本**: `test/` 目录包含各种功能测试脚本
+- **测试脚本**: `tests/` 目录包含各种功能测试脚本
 
 # BUG 反馈
 若您在使用过程中遇到任何问题，请在 issue 中提供 BUG 信息。为了方便我复现并解决该问题，请务必附上问题报错的提示或者相关网址。
@@ -245,6 +282,12 @@ export_collection(
 若您有任何建议，欢迎在 issue 中发起讨论
 
 ## 更新日志
+
+### v2.4 代码重构 & 收藏管理
+- 🏗️ **模块化重构**: main.py 从 1228 行拆分为 7 个独立模块（_logging, _headers, _paths, _converter, _content, _collection, _export）
+- 📝 **类型注释**: 所有模块添加完整的 Python 类型标注
+- ⭐ **收藏管理**: 新增 add_to_collection / remove_from_collection / move_to_collection 三个 MCP 工具
+- 🔧 **代码优化**: 提取 favorite_ops.py 公共错误处理逻辑，减少重复代码
 
 ### v2.3 反爬机制绕过
 - 🔄 **API 备用机制**: 当 HTML 请求返回 403 时，自动调用知乎 API (`/api/v4/answers/{id}?include=content`) 获取回答内容

@@ -1,0 +1,45 @@
+[
+  {
+      "_comment": "复制此文件为 cookies.json 并填入真实 cookies 值",
+      "domain": ".zhihu.com",
+      "expirationDate": 0,
+      "hostOnly": false,
+      "httpOnly": false,
+      "name": "_xsrf",
+      "path": "/",
+      "sameSite": "unspecified",
+      "secure": false,
+      "session": false,
+      "storeId": "0",
+      "value": "YOUR_XSRF_TOKEN_HERE",
+      "id": 1
+  },
+  {
+      "domain": ".zhihu.com",
+      "expirationDate": 0,
+      "hostOnly": false,
+      "httpOnly": true,
+      "name": "z_c0",
+      "path": "/",
+      "sameSite": "unspecified",
+      "secure": true,
+      "session": false,
+      "storeId": "0",
+      "value": "YOUR_Z_C0_TOKEN_HERE",
+      "id": 2
+  },
+  {
+      "domain": ".zhihu.com",
+      "expirationDate": 0,
+      "hostOnly": false,
+      "httpOnly": false,
+      "name": "d_c0",
+      "path": "/",
+      "sameSite": "unspecified",
+      "secure": false,
+      "session": false,
+      "storeId": "0",
+      "value": "YOUR_D_C0_VALUE_HERE",
+      "id": 3
+  }
+]

@@ -11,6 +11,12 @@ assets
 build/
 dist/
 *.spec
+*.egg-info/
 cookies.json
+config.json
 /downloads
 .vscode/*
+.venv/
+/blogs
+config.json.bak
+.env
